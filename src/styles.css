@@ -1,112 +1,120 @@
-.logo.vanilla:hover {
-  filter: drop-shadow(0 0 2em #ffe21c);
-}
 :root {
-  font-family: Inter, Avenir, Helvetica, Arial, sans-serif;
-  font-size: 16px;
-  line-height: 24px;
-  font-weight: 400;
-
-  color: #0f0f0f;
-  background-color: #f6f6f6;
-
+  color: #45291c;
+  background: #fffaf0;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
 }
 
-.container {
+* { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
   margin: 0;
-  padding-top: 10vh;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  text-align: center;
+  background: radial-gradient(circle at 100% 0, rgb(245 231 200 / 48%), transparent 27rem), #fffaf0;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: 0.75s;
+.app-shell {
+  width: min(100%, 430px);
+  min-height: 100vh;
+  margin: 0 auto;
+  padding: max(24px, env(safe-area-inset-top)) 20px max(30px, env(safe-area-inset-bottom));
 }
 
-.logo.tauri:hover {
-  filter: drop-shadow(0 0 2em #24c8db);
+.app-header, .brand, .card-topline { display: flex; align-items: center; }
+
+.app-header { justify-content: space-between; gap: 12px; }
+
+.brand {
+  gap: 10px;
+  color: #45291c;
+  font-size: 1.125rem;
+  font-weight: 800;
+  letter-spacing: -0.035em;
 }
 
-.row {
-  display: flex;
-  justify-content: center;
+.brand-mark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 13px;
+  background: #d99a25;
+  color: #45291c;
+  font-size: 1.25rem;
+  box-shadow: 0 5px 14px rgb(217 154 37 / 28%);
 }
 
-a {
-  font-weight: 500;
-  color: #646cff;
-  text-decoration: inherit;
+.offline-status { color: #74503a; font-size: 0.6875rem; font-weight: 750; letter-spacing: 0.03em; }
+
+.date-heading { margin: 42px 0 28px; }
+
+.date-heading p {
+  margin: 0;
+  color: #b86b16;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.17em;
+  text-transform: uppercase;
 }
 
-a:hover {
-  color: #535bf2;
+.summary-card {
+  border: 1px solid #f0dfbd;
+  border-radius: 26px;
+  background: #fff;
+  padding: 23px;
+  box-shadow: 0 5px 15px rgb(69 41 28 / 5%);
 }
 
-h1 {
-  text-align: center;
+.summary-card + .summary-card { margin-top: 16px; }
+.card-topline { justify-content: space-between; gap: 16px; }
+
+.eyebrow {
+  display: inline-flex;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.6875rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
 }
 
-input,
-button {
-  border-radius: 8px;
-  border: 1px solid transparent;
-  padding: 0.6em 1.2em;
-  font-size: 1em;
-  font-weight: 500;
-  font-family: inherit;
-  color: #0f0f0f;
-  background-color: #ffffff;
-  transition: border-color 0.25s;
-  box-shadow: 0 2px 2px rgba(0, 0, 0, 0.2);
+.eyebrow--today { background: rgb(217 154 37 / 18%); color: #b86b16; }
+.eyebrow--tomorrow { background: #f5e7c8; color: #74503a; }
+
+.card-symbol {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 15px;
+  font-size: 1.25rem;
+  font-weight: 800;
 }
 
-button {
-  cursor: pointer;
+.card-symbol--today { background: #d99a25; color: #45291c; }
+.card-symbol--tomorrow { background: #f5e7c8; color: #74503a; }
+
+.card-date { margin: 18px 0 0; color: #74503a; font-size: 0.875rem; font-weight: 650; }
+.collection-content { min-height: 83px; padding-top: 9px; }
+
+.collection-title {
+  margin: 0;
+  color: #45291c;
+  font-size: clamp(1.3rem, 5vw, 1.55rem);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.14;
 }
 
-button:hover {
-  border-color: #396cd8;
-}
-button:active {
-  border-color: #396cd8;
-  background-color: #e8e8e8;
-}
+.collection-title--empty::before { content: "⌁"; margin-right: 8px; color: #d99a25; }
 
-input,
-button {
-  outline: none;
-}
+.collection-detail { margin: 9px 0 0; color: #74503a; font-size: 0.875rem; line-height: 1.5; }
 
-#greet-input {
-  margin-right: 5px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    color: #f6f6f6;
-    background-color: #2f2f2f;
-  }
-
-  a:hover {
-    color: #24c8db;
-  }
-
-  input,
-  button {
-    color: #ffffff;
-    background-color: #0f0f0f98;
-  }
-  button:active {
-    background-color: #0f0f0f69;
-  }
+@media (min-width: 600px) {
+  .app-shell { padding-top: 42px; }
 }

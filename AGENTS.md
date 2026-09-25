@@ -14,6 +14,14 @@
 - Prefer local, inspectable data storage and deterministic behavior.
 - Keep permissions and Tauri capabilities minimal; add only those required by an implemented feature.
 
+## Application architecture
+
+- Keep domain rules and date calculations in Rust; the frontend is presentation-only and requests application-level data through Tauri commands.
+- Persist application state as versioned JSON behind a Rust repository abstraction. Do not let frontend code access the state file directly.
+- Seed default CollectionTypes in application state using stable IDs. Future custom CollectionTypes use the same model with `is_system: false`.
+- Preserve the local-first design: no server or network dependencies.
+- `../TrashIt` is read-only and may be used only as a UI/UX reference, not as an architecture source.
+
 ## Commands
 
 ```sh

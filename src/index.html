@@ -2,31 +2,48 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="stylesheet" href="styles.css" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#fffaf0" />
+    <link rel="stylesheet" href="styles.css" />
     <title>TrashTalk</title>
     <script type="module" src="/main.js" defer></script>
   </head>
 
   <body>
-    <main class="container">
-      <h1>Welcome to Tauri</h1>
+    <main class="app-shell">
+      <header class="app-header">
+        <div class="brand" aria-label="TrashTalk home">
+          <span class="brand-mark" aria-hidden="true">♻</span>
+          <span>TrashTalk</span>
+        </div>
+        <span class="offline-status">Offline ready</span>
+      </header>
 
-      <div class="row">
-        <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
-        <img
-          src="/assets/javascript.svg"
-          class="logo vanilla"
-          alt="JavaScript logo"
-        />
-      </div>
-      <p>Default Tauri starter</p>
+      <section class="date-heading" aria-labelledby="date-label">
+        <p id="date-label">Your collection schedule</p>
+      </section>
 
-      <form class="row" id="greet-form">
-        <input id="greet-input" placeholder="Enter a name..." />
-        <button type="submit">Greet</button>
-      </form>
-      <p id="greet-msg"></p>
+      <section class="summary-card summary-card--today" aria-labelledby="today-label">
+        <div class="card-topline">
+          <span class="eyebrow eyebrow--today" id="today-label">Today</span>
+          <span class="card-symbol card-symbol--today" aria-hidden="true">✓</span>
+        </div>
+        <p class="card-date" id="today-date">Loading date…</p>
+        <div class="collection-content" id="today-content" aria-live="polite">
+          <p class="collection-title">Checking your schedule…</p>
+        </div>
+      </section>
+
+      <section class="summary-card summary-card--tomorrow" aria-labelledby="tomorrow-label">
+        <div class="card-topline">
+          <span class="eyebrow eyebrow--tomorrow" id="tomorrow-label">Tomorrow</span>
+          <span class="card-symbol card-symbol--tomorrow" aria-hidden="true">→</span>
+        </div>
+        <p class="card-date" id="tomorrow-date">Loading date…</p>
+        <div class="collection-content" id="tomorrow-content" aria-live="polite">
+          <p class="collection-title">Checking your schedule…</p>
+        </div>
+      </section>
     </main>
   </body>
 </html>
