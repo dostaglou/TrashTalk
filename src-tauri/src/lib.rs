@@ -1,11 +1,13 @@
 mod application;
 mod domain;
+mod notifications;
 mod storage;
 
 use application::{
     AppService, CalendarDay, CalendarPeriod, CalendarPeriodKind, HomeSummary, ScheduleSummary,
 };
-use domain::{CollectionType, Schedule, ScheduleInput};
+use domain::{CollectionType, NotificationSettings, Schedule, ScheduleInput};
+use notifications::PlannedNotification;
 use storage::JsonStateStore;
 use tauri::Manager;
 
@@ -38,6 +40,28 @@ fn list_collection_types(
     service: tauri::State<'_, RuntimeAppService>,
 ) -> Result<Vec<CollectionType>, String> {
     service.list_collection_types()
+}
+
+#[tauri::command]
+fn get_notification_settings(
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<NotificationSettings, String> {
+    service.notification_settings()
+}
+
+#[tauri::command]
+fn save_notification_settings(
+    settings: NotificationSettings,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<NotificationSettings, String> {
+    service.save_notification_settings(settings)
+}
+
+#[tauri::command]
+fn get_notification_plan(
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<Vec<PlannedNotification>, String> {
+    service.notification_plan()
 }
 
 #[tauri::command]
@@ -80,6 +104,7 @@ fn delete_schedule(id: String, service: tauri::State<'_, RuntimeAppService>) -> 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             let state_path = app.path().app_data_dir()?.join("state.json");
             let service = RuntimeAppService::open(JsonStateStore::new(state_path))?;
@@ -91,6 +116,9 @@ pub fn run() {
             get_collection_calendar,
             get_calendar_period,
             list_collection_types,
+            get_notification_settings,
+            save_notification_settings,
+            get_notification_plan,
             list_schedules,
             get_schedule,
             create_schedule,

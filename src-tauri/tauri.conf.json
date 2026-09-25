@@ -15,7 +15,8 @@
       {
         "title": "TrashTalk",
         "width": 800,
-        "height": 600
+        "height": 600,
+        "backgroundColor": "#45291c"
       }
     ],
     "security": {

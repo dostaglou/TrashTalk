@@ -7,6 +7,17 @@ import glassIcon from "./assets/collection-types/glass.svg";
 import petBottleIcon from "./assets/collection-types/pet-bottle.svg";
 import plasticsIcon from "./assets/collection-types/recycle.svg";
 import unburnablesIcon from "./assets/collection-types/unburnables.svg";
+import brandMark from "./assets/trashtalk-mark.svg";
+import {
+  Importance,
+  Schedule as NotificationSchedule,
+  cancel,
+  createChannel,
+  isPermissionGranted,
+  pending,
+  requestPermission,
+  sendNotification,
+} from "@tauri-apps/plugin-notification";
 
 const { invoke } = window.__TAURI__.core;
 
@@ -33,6 +44,16 @@ const collectionPresentation = {
 };
 
 let editingScheduleId = null;
+const primaryViews = ["home", "calendar", "schedules", "notifications"];
+let activePrimaryView = "home";
+
+const reminderChannel = {
+  id: "trash-talk-reminders",
+  name: "TrashTalk reminders",
+  description: "Upcoming trash collection reminders",
+  importance: Importance.Default,
+  vibration: true,
+};
 
 function presentationFor(collection) {
   return collectionPresentation[collection.id] || collectionPresentation.custom;
@@ -125,14 +146,107 @@ async function loadHomeSummary() {
 }
 
 function showView(name) {
+  const isPrimaryView = primaryViews.includes(name);
+  if (isPrimaryView) activePrimaryView = name;
   document.querySelectorAll(".view").forEach((view) => view.classList.add("is-hidden"));
   document.querySelector(`#${name}-view`).classList.remove("is-hidden");
   document.querySelectorAll("[data-view]").forEach((button) => {
-    button.classList.toggle("nav-link--active", button.dataset.view === name);
+    button.classList.toggle("nav-link--active", button.dataset.view === activePrimaryView);
   });
   if (name === "home") loadHomeSummary();
   if (name === "calendar") loadCalendar();
   if (name === "schedules") loadSchedules();
+  if (name === "notifications") loadNotificationSettings();
+}
+
+function installPrimaryViewSwipeNavigation() {
+  const shell = document.querySelector(".app-shell");
+  const minimumSwipeDistance = 72;
+  const horizontalRatio = 1.4;
+  let gesture = null;
+
+  const startsOnInteractiveChild = (target) => target.closest(
+    "button, a, input, select, textarea, [role=tab], [data-swipe-exempt]",
+  );
+
+  shell.addEventListener("touchstart", (event) => {
+    if (event.touches.length !== 1 || startsOnInteractiveChild(event.target)) {
+      gesture = null;
+      return;
+    }
+    const touch = event.touches[0];
+    gesture = { startX: touch.clientX, startY: touch.clientY, direction: null };
+  }, { passive: true });
+
+  shell.addEventListener("touchmove", (event) => {
+    if (!gesture || event.touches.length !== 1 || gesture.direction) return;
+    const touch = event.touches[0];
+    const horizontal = Math.abs(touch.clientX - gesture.startX);
+    const vertical = Math.abs(touch.clientY - gesture.startY);
+    if (vertical > horizontal + 12) gesture.direction = "vertical";
+    if (horizontal > vertical + 12) gesture.direction = "horizontal";
+  }, { passive: true });
+
+  shell.addEventListener("touchend", (event) => {
+    if (!gesture || gesture.direction === "vertical" || event.changedTouches.length !== 1) {
+      gesture = null;
+      return;
+    }
+    const touch = event.changedTouches[0];
+    const deltaX = touch.clientX - gesture.startX;
+    const deltaY = touch.clientY - gesture.startY;
+    gesture = null;
+    if (Math.abs(deltaX) < minimumSwipeDistance || Math.abs(deltaX) < Math.abs(deltaY) * horizontalRatio) return;
+
+    const currentIndex = primaryViews.indexOf(activePrimaryView);
+    const nextIndex = deltaX < 0 ? currentIndex + 1 : currentIndex - 1;
+    if (nextIndex < 0 || nextIndex >= primaryViews.length) return;
+    showView(primaryViews[nextIndex]);
+  }, { passive: true });
+}
+
+function localDateTimeFromRust(value) {
+  const [date, time] = value.split("T");
+  const [year, month, day] = date.split("-").map(Number);
+  const [hour, minute, second = "0"] = time.split(":");
+  return new Date(year, month - 1, day, Number(hour), Number(minute), Number(second));
+}
+
+async function reconcileNativeNotifications({ requestPermission: shouldRequestPermission = false } = {}) {
+  try {
+    const settings = await invoke("get_notification_settings");
+    let granted = await isPermissionGranted();
+    if (!granted && shouldRequestPermission) granted = (await requestPermission()) === "granted";
+    if (!settings.dayBefore.enabled && !settings.dayOf.enabled) {
+      if (granted) await cancelTrashTalkNotifications();
+      return { scheduled: 0, permission: "not-needed" };
+    }
+    if (!granted) return { scheduled: 0, permission: "denied" };
+
+    await cancelTrashTalkNotifications();
+    await createChannel(reminderChannel);
+    const plan = await invoke("get_notification_plan");
+    plan.forEach((notification) => {
+      sendNotification({
+        id: notification.id,
+        channelId: reminderChannel.id,
+        title: notification.title,
+        body: notification.body,
+        schedule: NotificationSchedule.at(localDateTimeFromRust(notification.scheduledAt), false, true),
+      });
+    });
+    return { scheduled: plan.length, permission: "granted" };
+  } catch (error) {
+    console.error("Unable to reconcile local notifications", error);
+    return { scheduled: 0, permission: "unavailable", error };
+  }
+}
+
+async function cancelTrashTalkNotifications() {
+  // All TrashTalk IDs are negative; never cancel another subsystem's notification IDs.
+  const existing = await pending();
+  const priorTrashTalkIds = existing.map((notification) => notification.id).filter((id) => id < 0);
+  if (priorTrashTalkIds.length) await cancel(priorTrashTalkIds);
 }
 
 function makeButton(label, className, onClick) {
@@ -338,11 +452,75 @@ function renderMonthCalendar(calendar, content) {
   content.append(heading, weekdayLabels, grid, details);
 }
 
+function updateReminderCard(kind) {
+  const enabled = document.querySelector(`#${kind}-enabled`).checked;
+  const card = document.querySelector(`#${kind}-reminder`);
+  const choices = document.querySelector(`#${kind}-times`);
+  card.classList.toggle("notification-card--disabled", !enabled);
+  choices.classList.toggle("is-hidden", !enabled);
+  choices.querySelectorAll("input").forEach((input) => { input.disabled = !enabled; });
+}
+
+function setNotificationStatus(message = "", state = "") {
+  const status = document.querySelector("#notification-status");
+  status.textContent = message;
+  status.className = `form-status${message ? "" : " is-hidden"}${state ? ` form-status--${state}` : ""}`;
+}
+
+async function loadNotificationSettings() {
+  setNotificationStatus();
+  try {
+    const settings = await invoke("get_notification_settings");
+    ["day-before", "day-of"].forEach((kind) => {
+      const setting = kind === "day-before" ? settings.dayBefore : settings.dayOf;
+      document.querySelector(`#${kind}-enabled`).checked = setting.enabled;
+      document.querySelector(`input[name="${kind}-time"][value="${setting.time}"]`).checked = true;
+      updateReminderCard(kind);
+    });
+  } catch (error) {
+    setNotificationStatus("Unable to load notification settings. Please restart TrashTalk.", "error");
+    console.error("Unable to load notification settings", error);
+  }
+}
+
+async function saveNotificationSettings(event) {
+  event.preventDefault();
+  setNotificationStatus();
+  const settings = {
+    dayBefore: {
+      enabled: document.querySelector("#day-before-enabled").checked,
+      time: document.querySelector('input[name="day-before-time"]:checked').value,
+    },
+    dayOf: {
+      enabled: document.querySelector("#day-of-enabled").checked,
+      time: document.querySelector('input[name="day-of-time"]:checked').value,
+    },
+  };
+  try {
+    await invoke("save_notification_settings", { settings });
+    const result = await reconcileNativeNotifications({
+      requestPermission: settings.dayBefore.enabled || settings.dayOf.enabled,
+    });
+    if (result.permission === "denied") {
+      setNotificationStatus("Settings saved. Android notification permission was not granted, so reminders are not scheduled.", "error");
+    } else if (result.permission === "unavailable") {
+      setNotificationStatus("Settings saved, but Android reminders could not be scheduled on this device.", "error");
+    } else if (result.permission === "not-needed") {
+      setNotificationStatus("Settings saved. Reminders are off.", "success");
+    } else {
+      setNotificationStatus(`Settings saved. ${result.scheduled} upcoming reminder${result.scheduled === 1 ? "" : "s"} scheduled.`, "success");
+    }
+  } catch (error) {
+    setNotificationStatus(String(error), "error");
+  }
+}
+
 async function deleteSchedule(schedule) {
   const types = schedule.collectionTypes.map((item) => item.name).join(", ");
   if (!window.confirm(`Delete the ${types} schedule?`)) return;
   try {
     await invoke("delete_schedule", { id: schedule.id });
+    await reconcileNativeNotifications();
     await loadSchedules();
   } catch (error) {
     window.alert(error);
@@ -454,6 +632,7 @@ async function saveSchedule(event) {
     } else {
       await invoke("create_schedule", { input });
     }
+    await reconcileNativeNotifications();
     showView("schedules");
   } catch (error) {
     setFormError(String(error));
@@ -461,17 +640,24 @@ async function saveSchedule(event) {
 }
 
 window.addEventListener("DOMContentLoaded", () => {
+  document.querySelector("#brand-mark").src = brandMark;
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
   });
+  installPrimaryViewSwipeNavigation();
   document.querySelectorAll("[data-calendar-period]").forEach((button) => {
     button.addEventListener("click", () => loadCalendar(button.dataset.calendarPeriod));
   });
   document.querySelector("#add-schedule").addEventListener("click", () => openScheduleForm());
-  document.querySelector("#back-to-schedules").addEventListener("click", () => showView("schedules"));
   document.querySelector("#schedule-form").addEventListener("submit", saveSchedule);
+  document.querySelector("#notification-settings-form").addEventListener("submit", saveNotificationSettings);
+  ["day-before", "day-of"].forEach((kind) => {
+    document.querySelector(`#${kind}-enabled`).addEventListener("change", () => updateReminderCard(kind));
+  });
   document.querySelectorAll('input[name="recurrence"]').forEach((input) => {
     input.addEventListener("change", () => setRecurrenceMode(input.value));
   });
   loadHomeSummary();
+  // This never prompts on launch; it only refreshes reminders after a prior grant.
+  reconcileNativeNotifications();
 });

@@ -1,7 +1,8 @@
 use crate::domain::{
-    collections_for_date, recurrence_description, AppState, CollectionType, Schedule,
-    ScheduleInput, ScheduleRule,
+    collections_for_date, recurrence_description, AppState, CollectionType, NotificationSettings,
+    Schedule, ScheduleInput, ScheduleRule,
 };
+use crate::notifications::{plan_notifications, PlannedNotification, NOTIFICATION_HORIZON_DAYS};
 use crate::storage::{StateRepository, StoreError};
 use chrono::{Datelike, Local, NaiveDate};
 use serde::{Deserialize, Serialize};
@@ -183,6 +184,38 @@ impl<R: StateRepository> AppService<R> {
         Ok(self.lock_state()?.collection_types.clone())
     }
 
+    pub fn notification_settings(&self) -> Result<NotificationSettings, String> {
+        Ok(self.lock_state()?.notification_settings.clone())
+    }
+
+    pub fn save_notification_settings(
+        &self,
+        settings: NotificationSettings,
+    ) -> Result<NotificationSettings, String> {
+        self.mutate_state(move |state| {
+            state.notification_settings = settings.clone();
+            Ok(settings)
+        })
+    }
+
+    pub fn notification_plan(&self) -> Result<Vec<PlannedNotification>, String> {
+        self.notification_plan_for(Local::now().naive_local(), NOTIFICATION_HORIZON_DAYS)
+    }
+
+    pub fn notification_plan_for(
+        &self,
+        now: chrono::NaiveDateTime,
+        horizon_days: u32,
+    ) -> Result<Vec<PlannedNotification>, String> {
+        let state = self.lock_state()?;
+        Ok(plan_notifications(
+            &state,
+            &state.notification_settings,
+            now,
+            horizon_days,
+        ))
+    }
+
     pub fn list_schedules(&self) -> Result<Vec<ScheduleSummary>, String> {
         let state = self.lock_state()?;
         Ok(state
@@ -257,7 +290,7 @@ impl<R: StateRepository> AppService<R> {
         let result = mutation(&mut next_state)?;
         self.repository
             .save(&next_state)
-            .map_err(|error| format!("Unable to save schedule: {error}"))?;
+            .map_err(|error| format!("Unable to save application state: {error}"))?;
         *state = next_state;
         Ok(result)
     }

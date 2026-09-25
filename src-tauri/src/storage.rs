@@ -40,6 +40,7 @@ pub trait StateRepository: Send + Sync + 'static {
 
     fn load_or_initialize(&self) -> Result<AppState, StoreError> {
         let mut state = self.load()?;
+        state.migrate_to_current();
         state.ensure_system_collection_types();
         self.save(&state)?;
         Ok(state)
@@ -160,5 +161,23 @@ mod tests {
                 .count(),
             8
         );
+    }
+
+    #[test]
+    fn version_one_state_migrates_to_disabled_notification_settings() {
+        let store = test_store();
+        let old_state = r#"{
+          "version": 1,
+          "collectionTypes": [{"id":"system.combustible","name":"Combustible","isSystem":true}],
+          "schedules": []
+        }"#;
+        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
+        fs::write(store.path(), old_state).unwrap();
+
+        let state = store.load_or_initialize().unwrap();
+        assert_eq!(state.version, crate::domain::CURRENT_STATE_VERSION);
+        assert!(!state.notification_settings.day_before.enabled);
+        assert!(!state.notification_settings.day_of.enabled);
+        assert_eq!(state.collection_types.len(), 8);
     }
 }

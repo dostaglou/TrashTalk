@@ -2,8 +2,8 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#fffaf0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#45291c" />
     <link rel="stylesheet" href="styles.css" />
     <title>TrashTalk</title>
     <script type="module" src="/main.js" defer></script>
@@ -13,13 +13,14 @@
     <main class="app-shell">
       <header class="app-header">
         <div class="brand" aria-label="TrashTalk home">
-          <span class="brand-mark" aria-hidden="true">♻</span>
+          <img class="brand-mark" id="brand-mark" alt="" aria-hidden="true" />
           <span>TrashTalk</span>
         </div>
         <nav class="top-nav" aria-label="Main navigation">
           <button class="nav-link nav-link--active" type="button" data-view="home">Home</button>
           <button class="nav-link" type="button" data-view="calendar">Calendar</button>
           <button class="nav-link" type="button" data-view="schedules">Schedules</button>
+          <button class="nav-link" type="button" data-view="notifications">Alerts</button>
         </nav>
       </header>
 
@@ -67,7 +68,7 @@
       <section id="schedules-view" class="view is-hidden" aria-labelledby="schedules-heading">
         <div class="page-heading">
           <div>
-            <p class="eyebrow-text">Your routine</p>
+            <p class="eyebrow-text">Your routines</p>
             <h1 id="schedules-heading">Schedules</h1>
           </div>
           <button class="primary-button primary-button--compact" type="button" id="add-schedule">Add</button>
@@ -77,7 +78,6 @@
 
       <section id="schedule-form-view" class="view is-hidden" aria-labelledby="schedule-form-heading">
         <div class="form-page-heading">
-          <button class="back-button" type="button" id="back-to-schedules">‹ Schedules</button>
           <p class="eyebrow-text" id="schedule-form-mode">New routine</p>
           <h1 id="schedule-form-heading">Add a schedule</h1>
           <p class="page-intro">Choose what goes out and which days it is collected.</p>
@@ -110,6 +110,55 @@
             <div id="ordinal-options" class="selection-grid selection-grid--ordinals"></div>
           </fieldset>
           <button class="primary-button" type="submit" id="save-schedule">Add schedule</button>
+        </form>
+      </section>
+
+      <section id="notifications-view" class="view is-hidden" aria-labelledby="notifications-heading">
+        <div class="form-page-heading">
+          <p class="eyebrow-text">Your reminders</p>
+          <h1 id="notifications-heading">Notifications</h1>
+          <p class="page-intro">Choose broad delivery times for local Android reminders. Delivery may be a little later to preserve battery life.</p>
+        </div>
+        <form id="notification-settings-form" class="notification-settings" novalidate>
+          <section class="notification-card" id="day-before-reminder">
+            <div class="notification-card__heading">
+              <div>
+                <h2>Day before</h2>
+                <p>Time to get tomorrow's collection ready.</p>
+              </div>
+              <label class="switch-label" for="day-before-enabled">
+                <span class="sr-only">Enable day-before reminders</span>
+                <input id="day-before-enabled" type="checkbox" />
+                <span class="switch" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="time-options" id="day-before-times">
+              <label class="time-option"><input type="radio" name="day-before-time" value="early" checked /><span><strong>Early</strong><small>Around 6 AM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="afternoon" /><span><strong>Afternoon</strong><small>Around noon</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="late" /><span><strong>Late</strong><small>Around 6 PM</small></span></label>
+            </div>
+          </section>
+
+          <section class="notification-card" id="day-of-reminder">
+            <div class="notification-card__heading">
+              <div>
+                <h2>Day of</h2>
+                <p>A reminder on collection day.</p>
+              </div>
+              <label class="switch-label" for="day-of-enabled">
+                <span class="sr-only">Enable day-of reminders</span>
+                <input id="day-of-enabled" type="checkbox" />
+                <span class="switch" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="time-options" id="day-of-times">
+              <label class="time-option"><input type="radio" name="day-of-time" value="early" checked /><span><strong>Early</strong><small>Around 6 AM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="afternoon" /><span><strong>Afternoon</strong><small>Around noon</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="late" /><span><strong>Late</strong><small>Around 6 PM</small></span></label>
+            </div>
+          </section>
+          <p id="notification-status" class="form-status is-hidden" role="status"></p>
+          <button class="primary-button" type="submit">Save reminder settings</button>
         </form>
       </section>
     </main>

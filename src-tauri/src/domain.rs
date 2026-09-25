@@ -2,7 +2,7 @@ use chrono::{Datelike, NaiveDate, Weekday as ChronoWeekday};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const CURRENT_STATE_VERSION: u32 = 1;
+pub const CURRENT_STATE_VERSION: u32 = 2;
 
 pub type CollectionTypeId = String;
 
@@ -75,12 +75,57 @@ pub struct ScheduleInput {
     pub rule: ScheduleRule,
 }
 
+/// The three deliberately broad delivery periods offered by the product.
+/// They are nominal local times, not exact-alarm guarantees.
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotificationTime {
+    Early,
+    Afternoon,
+    Late,
+}
+
+impl NotificationTime {
+    pub fn hour(self) -> u32 {
+        match self {
+            Self::Early => 6,
+            Self::Afternoon => 12,
+            Self::Late => 18,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ReminderSetting {
+    pub enabled: bool,
+    pub time: NotificationTime,
+}
+
+impl Default for ReminderSetting {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            time: NotificationTime::Early,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct NotificationSettings {
+    pub day_before: ReminderSetting,
+    pub day_of: ReminderSetting,
+}
+
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
     pub version: u32,
     pub collection_types: Vec<CollectionType>,
     pub schedules: Vec<Schedule>,
+    #[serde(default)]
+    pub notification_settings: NotificationSettings,
 }
 
 impl Default for AppState {
@@ -89,11 +134,22 @@ impl Default for AppState {
             version: CURRENT_STATE_VERSION,
             collection_types: default_collection_types(),
             schedules: Vec::new(),
+            notification_settings: NotificationSettings::default(),
         }
     }
 }
 
 impl AppState {
+    /// Moves known persisted state versions forward without changing user schedules.
+    /// The missing `notification_settings` field in version 1 deserializes to disabled defaults.
+    pub fn migrate_to_current(&mut self) -> bool {
+        if self.version < CURRENT_STATE_VERSION {
+            self.version = CURRENT_STATE_VERSION;
+            return true;
+        }
+        false
+    }
+
     /// Adds newly introduced system types without touching custom types or schedules.
     /// Returns whether the persisted state changed.
     pub fn ensure_system_collection_types(&mut self) -> bool {
@@ -335,5 +391,26 @@ mod tests {
 
         assert!(!state.ensure_system_collection_types());
         assert_eq!(state.collection_types.len(), 8);
+    }
+
+    #[test]
+    fn notification_settings_round_trip_through_json() {
+        let mut state = AppState::default();
+        state.notification_settings = NotificationSettings {
+            day_before: ReminderSetting {
+                enabled: true,
+                time: NotificationTime::Late,
+            },
+            day_of: ReminderSetting {
+                enabled: true,
+                time: NotificationTime::Afternoon,
+            },
+        };
+
+        let serialized = serde_json::to_string(&state).unwrap();
+        assert_eq!(
+            serde_json::from_str::<AppState>(&serialized).unwrap(),
+            state
+        );
     }
 }

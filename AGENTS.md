@@ -25,6 +25,13 @@
 - Schedule CRUD must use application-level Tauri commands and the versioned JSON repository. Deleting a Schedule never deletes its CollectionTypes.
 - Calendar occurrences are derived at request time and are never persisted. Rust owns date-range and recurrence calculations; JavaScript only renders returned calendar days.
 - Calendar views consume the same recurrence engine as Home and use local calendar dates without unnecessary UTC conversion.
+- Notification settings are persisted in versioned AppState using strongly typed Rust enums. Existing state must be migrated forward safely.
+- Notification planning is pure Rust: it derives disposable 30-day local reminders from schedules, CollectionTypes, settings, and an explicit local date/time. It must not call Tauri or Android APIs.
+- Android notification registration is a single reconciliation bridge: cancel prior TrashTalk reminders, request a fresh Rust plan, and register it. Generated notification occurrences are not domain data or the source of truth.
+- Request Android notification permission only after the user enables reminders or otherwise explicitly initiates notification functionality. Do not use remote push, Firebase, exact-alarm permission, or a continuously running background service.
+- The shared app shell owns primary-destination navigation. Preserve visible navigation controls and keep swipe navigation bounded, clearly horizontal, and non-interfering with vertical scrolling or interactive child controls.
+- Keep the canonical TrashTalk mark as a source SVG in `src/assets`; use it for the in-app brand and regenerate Android launcher resources with `npm run tauri icon -- src/assets/trashtalk-mark.svg -o src-tauri/icons`.
+- Android uses edge-to-edge system bars: extend the dark brand header behind the transparent status bar, rely on safe-area insets for content placement, use light status icons there, and retain dark navigation icons over the light bottom surface.
 
 ## Commands
 
