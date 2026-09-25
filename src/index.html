@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>TrashTalk</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <main class="container">
+      <h1>Welcome to Tauri</h1>
+
+      <div class="row">
+        <img src="/assets/tauri.svg" class="logo tauri" alt="Tauri logo" />
+        <img
+          src="/assets/javascript.svg"
+          class="logo vanilla"
+          alt="JavaScript logo"
+        />
+      </div>
+      <p>Default Tauri starter</p>
+
+      <form class="row" id="greet-form">
+        <input id="greet-input" placeholder="Enter a name..." />
+        <button type="submit">Greet</button>
+      </form>
+      <p id="greet-msg"></p>
+    </main>
+  </body>
+</html>
