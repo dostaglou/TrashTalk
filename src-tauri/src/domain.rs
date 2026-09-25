@@ -14,7 +14,7 @@ pub struct CollectionType {
     pub is_system: bool,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Weekday {
     Monday,
@@ -27,6 +27,18 @@ pub enum Weekday {
 }
 
 impl Weekday {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Monday => "Monday",
+            Self::Tuesday => "Tuesday",
+            Self::Wednesday => "Wednesday",
+            Self::Thursday => "Thursday",
+            Self::Friday => "Friday",
+            Self::Saturday => "Saturday",
+            Self::Sunday => "Sunday",
+        }
+    }
+
     fn matches(self, date: NaiveDate) -> bool {
         matches!(
             (self, date.weekday()),
@@ -52,6 +64,13 @@ pub enum ScheduleRule {
 #[serde(rename_all = "camelCase")]
 pub struct Schedule {
     pub id: String,
+    pub collection_type_ids: Vec<CollectionTypeId>,
+    pub rule: ScheduleRule,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ScheduleInput {
     pub collection_type_ids: Vec<CollectionTypeId>,
     pub rule: ScheduleRule,
 }
@@ -149,6 +168,49 @@ pub fn ordinal_in_month(date: NaiveDate) -> u8 {
     ((date.day() - 1) / 7 + 1) as u8
 }
 
+pub fn recurrence_description(rule: &ScheduleRule) -> String {
+    match rule {
+        ScheduleRule::Weekly { weekdays } => format!(
+            "Every {}",
+            join_words(weekdays.iter().map(|weekday| weekday.label()).collect())
+        ),
+        ScheduleRule::MonthlyNthWeekday { weekday, ordinals } => format!(
+            "{} {} of each month",
+            join_words(
+                ordinals
+                    .iter()
+                    .map(|ordinal| ordinal_label(*ordinal))
+                    .collect()
+            ),
+            weekday.label()
+        ),
+    }
+}
+
+fn ordinal_label(ordinal: u8) -> &'static str {
+    match ordinal {
+        1 => "1st",
+        2 => "2nd",
+        3 => "3rd",
+        4 => "4th",
+        5 => "5th",
+        _ => "invalid ordinal",
+    }
+}
+
+fn join_words(words: Vec<&str>) -> String {
+    match words.as_slice() {
+        [] => String::new(),
+        [word] => (*word).to_owned(),
+        [first, second] => format!("{first} and {second}"),
+        _ => format!(
+            "{}, and {}",
+            words[..words.len() - 1].join(", "),
+            words.last().unwrap()
+        ),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -212,6 +274,58 @@ mod tests {
         assert!(!schedule_matches(
             &schedule,
             NaiveDate::from_ymd_opt(2026, 9, 16).unwrap()
+        ));
+    }
+
+    #[test]
+    fn weekly_and_multiple_schedules_match_the_same_date() {
+        let mut state = AppState::default();
+        state.schedules = vec![
+            Schedule {
+                id: "monday-combustible".to_owned(),
+                collection_type_ids: vec!["system.combustible".to_owned()],
+                rule: ScheduleRule::Weekly {
+                    weekdays: vec![Weekday::Monday],
+                },
+            },
+            Schedule {
+                id: "monday-plastics".to_owned(),
+                collection_type_ids: vec!["system.plastics".to_owned()],
+                rule: ScheduleRule::Weekly {
+                    weekdays: vec![Weekday::Monday, Weekday::Thursday],
+                },
+            },
+        ];
+
+        let collections =
+            collections_for_date(&state, NaiveDate::from_ymd_opt(2026, 9, 21).unwrap());
+        assert_eq!(
+            collections
+                .iter()
+                .map(|collection| collection.name.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Combustible", "Plastics"]
+        );
+    }
+
+    #[test]
+    fn fifth_weekday_only_matches_in_months_that_have_one() {
+        let schedule = Schedule {
+            id: "fifth-monday".to_owned(),
+            collection_type_ids: vec!["system.glass".to_owned()],
+            rule: ScheduleRule::MonthlyNthWeekday {
+                weekday: Weekday::Monday,
+                ordinals: vec![5],
+            },
+        };
+
+        assert!(schedule_matches(
+            &schedule,
+            NaiveDate::from_ymd_opt(2026, 3, 30).unwrap()
+        ));
+        assert!(!schedule_matches(
+            &schedule,
+            NaiveDate::from_ymd_opt(2026, 2, 23).unwrap()
         ));
     }
 

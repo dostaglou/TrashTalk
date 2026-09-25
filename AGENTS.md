@@ -21,6 +21,8 @@
 - Seed default CollectionTypes in application state using stable IDs. Future custom CollectionTypes use the same model with `is_system: false`.
 - Preserve the local-first design: no server or network dependencies.
 - `../TrashIt` is read-only and may be used only as a UI/UX reference, not as an architecture source.
+- Recurrence semantics and schedule validation belong in Rust. JavaScript renders Rust-provided descriptions and never interprets persisted recurrence rules.
+- Schedule CRUD must use application-level Tauri commands and the versioned JSON repository. Deleting a Schedule never deletes its CollectionTypes.
 
 ## Commands
 

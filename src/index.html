@@ -16,33 +16,87 @@
           <span class="brand-mark" aria-hidden="true">♻</span>
           <span>TrashTalk</span>
         </div>
-        <span class="offline-status">Offline ready</span>
+        <nav class="top-nav" aria-label="Main navigation">
+          <button class="nav-link nav-link--active" type="button" data-view="home">Home</button>
+          <button class="nav-link" type="button" data-view="schedules">Schedules</button>
+        </nav>
       </header>
 
-      <section class="date-heading" aria-labelledby="date-label">
-        <p id="date-label">Your collection schedule</p>
+      <section id="home-view" class="view" aria-labelledby="date-label">
+        <div class="date-heading">
+          <p id="date-label">Your collection schedule</p>
+        </div>
+
+        <section class="summary-card summary-card--today" aria-labelledby="today-label">
+          <div class="card-topline">
+            <span class="eyebrow eyebrow--today" id="today-label">Today</span>
+            <span class="card-symbol card-symbol--today" aria-hidden="true">✓</span>
+          </div>
+          <p class="card-date" id="today-date">Loading date…</p>
+          <div class="collection-content" id="today-content" aria-live="polite">
+            <p class="collection-title">Checking your schedule…</p>
+          </div>
+        </section>
+
+        <section class="summary-card summary-card--tomorrow" aria-labelledby="tomorrow-label">
+          <div class="card-topline">
+            <span class="eyebrow eyebrow--tomorrow" id="tomorrow-label">Tomorrow</span>
+            <span class="card-symbol card-symbol--tomorrow" aria-hidden="true">→</span>
+          </div>
+          <p class="card-date" id="tomorrow-date">Loading date…</p>
+          <div class="collection-content" id="tomorrow-content" aria-live="polite">
+            <p class="collection-title">Checking your schedule…</p>
+          </div>
+        </section>
       </section>
 
-      <section class="summary-card summary-card--today" aria-labelledby="today-label">
-        <div class="card-topline">
-          <span class="eyebrow eyebrow--today" id="today-label">Today</span>
-          <span class="card-symbol card-symbol--today" aria-hidden="true">✓</span>
+      <section id="schedules-view" class="view is-hidden" aria-labelledby="schedules-heading">
+        <div class="page-heading">
+          <div>
+            <p class="eyebrow-text">Your routine</p>
+            <h1 id="schedules-heading">Schedules</h1>
+          </div>
+          <button class="primary-button primary-button--compact" type="button" id="add-schedule">Add</button>
         </div>
-        <p class="card-date" id="today-date">Loading date…</p>
-        <div class="collection-content" id="today-content" aria-live="polite">
-          <p class="collection-title">Checking your schedule…</p>
-        </div>
+        <div id="schedule-list" class="schedule-list" aria-live="polite"></div>
       </section>
 
-      <section class="summary-card summary-card--tomorrow" aria-labelledby="tomorrow-label">
-        <div class="card-topline">
-          <span class="eyebrow eyebrow--tomorrow" id="tomorrow-label">Tomorrow</span>
-          <span class="card-symbol card-symbol--tomorrow" aria-hidden="true">→</span>
+      <section id="schedule-form-view" class="view is-hidden" aria-labelledby="schedule-form-heading">
+        <div class="form-page-heading">
+          <button class="back-button" type="button" id="back-to-schedules">‹ Schedules</button>
+          <p class="eyebrow-text" id="schedule-form-mode">New routine</p>
+          <h1 id="schedule-form-heading">Add a schedule</h1>
+          <p class="page-intro">Choose what goes out and which days it is collected.</p>
         </div>
-        <p class="card-date" id="tomorrow-date">Loading date…</p>
-        <div class="collection-content" id="tomorrow-content" aria-live="polite">
-          <p class="collection-title">Checking your schedule…</p>
-        </div>
+        <form id="schedule-form" class="form-card" novalidate>
+          <div id="form-error" class="form-error is-hidden" role="alert"></div>
+          <fieldset class="form-section">
+            <legend>Collection types</legend>
+            <p class="field-hint">Choose everything collected on this schedule.</p>
+            <div id="collection-type-options" class="selection-grid"></div>
+          </fieldset>
+          <fieldset class="form-section">
+            <legend>Repeat</legend>
+            <div class="mode-toggle">
+              <label><input type="radio" name="recurrence" value="weekly" checked /> Every week</label>
+              <label><input type="radio" name="recurrence" value="monthly" /> Monthly</label>
+            </div>
+          </fieldset>
+          <fieldset class="form-section" id="weekly-fields">
+            <legend>Collection days</legend>
+            <div id="weekday-options" class="selection-grid selection-grid--days"></div>
+          </fieldset>
+          <fieldset class="form-section is-hidden" id="monthly-fields">
+            <legend>Monthly collection</legend>
+            <label class="field-label" for="monthly-weekday">Day of the week</label>
+            <select id="monthly-weekday" class="select-field">
+              <option value="">Choose a day</option>
+            </select>
+            <p class="field-label field-label--spaced">Which occurrence?</p>
+            <div id="ordinal-options" class="selection-grid selection-grid--ordinals"></div>
+          </fieldset>
+          <button class="primary-button" type="submit" id="save-schedule">Add schedule</button>
+        </form>
       </section>
     </main>
   </body>
