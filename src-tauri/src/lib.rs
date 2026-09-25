@@ -2,7 +2,9 @@ mod application;
 mod domain;
 mod storage;
 
-use application::{AppService, HomeSummary, ScheduleSummary};
+use application::{
+    AppService, CalendarDay, CalendarPeriod, CalendarPeriodKind, HomeSummary, ScheduleSummary,
+};
 use domain::{CollectionType, Schedule, ScheduleInput};
 use storage::JsonStateStore;
 use tauri::Manager;
@@ -12,6 +14,23 @@ type RuntimeAppService = AppService<JsonStateStore>;
 #[tauri::command]
 fn get_home_summary(service: tauri::State<'_, RuntimeAppService>) -> Result<HomeSummary, String> {
     service.home_summary()
+}
+
+#[tauri::command]
+fn get_collection_calendar(
+    start_date: String,
+    end_date: String,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<Vec<CalendarDay>, String> {
+    service.collection_calendar(&start_date, &end_date)
+}
+
+#[tauri::command]
+fn get_calendar_period(
+    period: CalendarPeriodKind,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<CalendarPeriod, String> {
+    service.calendar_period(period)
 }
 
 #[tauri::command]
@@ -69,6 +88,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             get_home_summary,
+            get_collection_calendar,
+            get_calendar_period,
             list_collection_types,
             list_schedules,
             get_schedule,

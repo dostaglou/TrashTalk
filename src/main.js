@@ -69,7 +69,11 @@ function showView(name) {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("nav-link--active", button.dataset.view === name);
   });
+  document.querySelectorAll("[data-calendar-period]").forEach((button) => {
+    button.addEventListener("click", () => loadCalendar(button.dataset.calendarPeriod));
+  });
   if (name === "home") loadHomeSummary();
+  if (name === "calendar") loadCalendar();
   if (name === "schedules") loadSchedules();
 }
 
@@ -123,6 +127,145 @@ function renderScheduleCard(schedule) {
   );
   card.append(info, actions);
   return card;
+}
+
+function formatShortDate(isoDate) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  }).format(localDateFromIso(isoDate));
+}
+
+function formatMonth(isoDate) {
+  return new Intl.DateTimeFormat(undefined, {
+    month: "long",
+    year: "numeric",
+  }).format(localDateFromIso(isoDate));
+}
+
+function calendarDayTitle(day, today) {
+  if (day.date === today) return "Today";
+  const tomorrow = new Date(localDateFromIso(today));
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowIso = [tomorrow.getFullYear(), String(tomorrow.getMonth() + 1).padStart(2, "0"), String(tomorrow.getDate()).padStart(2, "0")].join("-");
+  return day.date === tomorrowIso ? "Tomorrow" : new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(localDateFromIso(day.date));
+}
+
+async function loadCalendar(period = document.querySelector(".calendar-tab.is-active")?.dataset.calendarPeriod || "next_seven_days") {
+  window.scrollTo(0, 0);
+  const content = document.querySelector("#calendar-content");
+  content.replaceChildren();
+  try {
+    const calendar = await invoke("get_calendar_period", { period });
+    document.querySelectorAll(".calendar-tab").forEach((tab) => {
+      const active = tab.dataset.calendarPeriod === period;
+      tab.classList.toggle("is-active", active);
+      tab.setAttribute("aria-selected", String(active));
+    });
+    if (period === "next_seven_days") {
+      renderWeekCalendar(calendar, content);
+    } else {
+      renderMonthCalendar(calendar, content);
+    }
+  } catch (error) {
+    content.textContent = "Unable to load the calendar. Please restart TrashTalk.";
+    console.error("Unable to load calendar", error);
+  }
+}
+
+function renderWeekCalendar(calendar, content) {
+  const header = document.createElement("div");
+  header.className = "calendar-range-heading";
+  const title = document.createElement("h2");
+  title.textContent = "Next 7 days";
+  const range = document.createElement("p");
+  range.textContent = `${formatShortDate(calendar.startDate)} – ${formatShortDate(calendar.endDate)}`;
+  header.append(title, range);
+  const list = document.createElement("div");
+  list.className = "calendar-day-list";
+  calendar.days.forEach((day) => {
+    const card = document.createElement("article");
+    card.className = "calendar-day-card";
+    if (day.date === calendar.today) card.classList.add("calendar-day-card--today");
+    const number = document.createElement("div");
+    number.className = "calendar-date-badge";
+    number.innerHTML = `<span>${new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(localDateFromIso(day.date))}</span><strong>${localDateFromIso(day.date).getDate()}</strong>`;
+    const details = document.createElement("div");
+    const label = document.createElement("h3");
+    label.textContent = calendarDayTitle(day, calendar.today);
+    const date = document.createElement("p");
+    date.className = "calendar-day-date";
+    date.textContent = formatDate(day.date);
+    const collections = document.createElement("p");
+    collections.className = "calendar-collections";
+    collections.textContent = day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection";
+    details.append(label, date, collections);
+    card.append(number, details);
+    list.append(card);
+  });
+  content.append(header, list);
+}
+
+function renderMonthCalendar(calendar, content) {
+  const heading = document.createElement("div");
+  heading.className = "calendar-month-heading";
+  const eyebrow = document.createElement("p");
+  eyebrow.className = "eyebrow-text";
+  eyebrow.textContent = calendar.startDate.slice(0, 7) === calendar.today.slice(0, 7) ? "This month" : "Next month";
+  const title = document.createElement("h2");
+  title.textContent = formatMonth(calendar.startDate);
+  heading.append(eyebrow, title);
+  const weekdayLabels = document.createElement("div");
+  weekdayLabels.className = "month-weekdays";
+  ["S", "M", "T", "W", "T", "F", "S"].forEach((label) => {
+    const item = document.createElement("span");
+    item.textContent = label;
+    weekdayLabels.append(item);
+  });
+  const grid = document.createElement("div");
+  grid.className = "month-grid";
+  const firstWeekday = localDateFromIso(calendar.startDate).getDay();
+  for (let index = 0; index < firstWeekday; index += 1) {
+    const blank = document.createElement("span");
+    blank.setAttribute("aria-hidden", "true");
+    grid.append(blank);
+  }
+  const details = document.createElement("div");
+  details.className = "calendar-selection";
+  let selectedButton;
+  const selectDay = (day, button) => {
+    selectedButton?.classList.remove("month-day--selected");
+    selectedButton = button;
+    selectedButton.classList.add("month-day--selected");
+    details.replaceChildren();
+    const title = document.createElement("strong");
+    title.textContent = formatDate(day.date);
+    const description = document.createElement("p");
+    description.textContent = day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection scheduled";
+    details.append(title, description);
+  };
+  calendar.days.forEach((day) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "month-day";
+    if (day.date === calendar.today) button.classList.add("month-day--today");
+    const number = document.createElement("span");
+    number.textContent = String(localDateFromIso(day.date).getDate());
+    button.append(number);
+    if (day.collections.length) {
+      const count = document.createElement("small");
+      count.textContent = day.collections.length === 1 ? "1 item" : `${day.collections.length} items`;
+      button.append(count);
+    }
+    button.setAttribute("aria-label", `${formatDate(day.date)}: ${day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection"}`);
+    button.addEventListener("click", () => selectDay(day, button));
+    grid.append(button);
+    if (day.date === calendar.today || (!selectedButton && day.date === calendar.startDate)) {
+      selectDay(day, button);
+    }
+  });
+  content.append(heading, weekdayLabels, grid, details);
 }
 
 async function deleteSchedule(schedule) {

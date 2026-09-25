@@ -23,6 +23,8 @@
 - `../TrashIt` is read-only and may be used only as a UI/UX reference, not as an architecture source.
 - Recurrence semantics and schedule validation belong in Rust. JavaScript renders Rust-provided descriptions and never interprets persisted recurrence rules.
 - Schedule CRUD must use application-level Tauri commands and the versioned JSON repository. Deleting a Schedule never deletes its CollectionTypes.
+- Calendar occurrences are derived at request time and are never persisted. Rust owns date-range and recurrence calculations; JavaScript only renders returned calendar days.
+- Calendar views consume the same recurrence engine as Home and use local calendar dates without unnecessary UTC conversion.
 
 ## Commands
 

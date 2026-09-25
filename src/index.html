@@ -18,6 +18,7 @@
         </div>
         <nav class="top-nav" aria-label="Main navigation">
           <button class="nav-link nav-link--active" type="button" data-view="home">Home</button>
+          <button class="nav-link" type="button" data-view="calendar">Calendar</button>
           <button class="nav-link" type="button" data-view="schedules">Schedules</button>
         </nav>
       </header>
@@ -48,6 +49,19 @@
             <p class="collection-title">Checking your schedule…</p>
           </div>
         </section>
+      </section>
+
+      <section id="calendar-view" class="view is-hidden" aria-labelledby="calendar-heading">
+        <div class="calendar-heading">
+          <p class="eyebrow-text">Plan ahead</p>
+          <h1 id="calendar-heading">Calendar</h1>
+        </div>
+        <div class="calendar-tabs" role="tablist" aria-label="Calendar view">
+          <button type="button" class="calendar-tab is-active" data-calendar-period="next_seven_days" role="tab" aria-selected="true">Next 7 days</button>
+          <button type="button" class="calendar-tab" data-calendar-period="this_month" role="tab" aria-selected="false">This month</button>
+          <button type="button" class="calendar-tab" data-calendar-period="next_month" role="tab" aria-selected="false">Next month</button>
+        </div>
+        <div id="calendar-content" aria-live="polite"></div>
       </section>
 
       <section id="schedules-view" class="view is-hidden" aria-labelledby="schedules-heading">
