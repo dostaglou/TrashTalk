@@ -1,3 +1,13 @@
+import appliancesIcon from "./assets/collection-types/appliances.svg";
+import canisterIcon from "./assets/collection-types/canister.svg";
+import cardboardIcon from "./assets/collection-types/cardboard.svg";
+import combustibleIcon from "./assets/collection-types/flame.svg";
+import customIcon from "./assets/collection-types/custom.svg";
+import glassIcon from "./assets/collection-types/glass.svg";
+import petBottleIcon from "./assets/collection-types/pet-bottle.svg";
+import plasticsIcon from "./assets/collection-types/recycle.svg";
+import unburnablesIcon from "./assets/collection-types/unburnables.svg";
+
 const { invoke } = window.__TAURI__.core;
 
 const weekdays = [
@@ -10,7 +20,55 @@ const weekdays = [
   ["saturday", "Saturday"],
 ];
 
+const collectionPresentation = {
+  "system.combustible": { icon: combustibleIcon, color: "#fb923c", tint: "#fff1e6" },
+  "system.plastics": { icon: plasticsIcon, color: "#2dd4bf", tint: "#e4fbf6" },
+  "system.pet-bottles": { icon: petBottleIcon, color: "#60a5fa", tint: "#eaf3ff" },
+  "system.unburnables": { icon: unburnablesIcon, color: "#64748b", tint: "#edf1f5" },
+  "system.glass": { icon: glassIcon, color: "#c084fc", tint: "#f4ebff" },
+  "system.cans-and-spray-cans": { icon: canisterIcon, color: "#94a3b8", tint: "#f0f4f7" },
+  "system.cardboard-newspapers-magazines": { icon: cardboardIcon, color: "#fbbf24", tint: "#fff6d9" },
+  "system.small-electronics-household-appliances": { icon: appliancesIcon, color: "#f472b6", tint: "#ffebf5" },
+  custom: { icon: customIcon, color: "#a78bfa", tint: "#f2edff" },
+};
+
 let editingScheduleId = null;
+
+function presentationFor(collection) {
+  return collectionPresentation[collection.id] || collectionPresentation.custom;
+}
+
+function collectionIcon(collection, className = "collection-type-icon") {
+  const presentation = presentationFor(collection);
+  const icon = document.createElement("img");
+  icon.className = className;
+  icon.src = presentation.icon;
+  icon.alt = "";
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+
+function collectionIconList(collections, className = "collection-icon-list") {
+  const list = document.createElement("span");
+  list.className = className;
+  collections.forEach((collection) => list.append(collectionIcon(collection)));
+  return list;
+}
+
+function collectionChips(collections, className = "collection-chips") {
+  const chips = document.createElement("span");
+  chips.className = className;
+  collections.forEach((collection) => {
+    const presentation = presentationFor(collection);
+    const chip = document.createElement("span");
+    chip.className = "collection-chip";
+    chip.style.setProperty("--type-color", presentation.color);
+    chip.style.setProperty("--type-tint", presentation.tint);
+    chip.append(collectionIcon(collection), document.createTextNode(collection.name));
+    chips.append(chip);
+  });
+  return chips;
+}
 
 function localDateFromIso(isoDate) {
   const [year, month, day] = isoDate.split("-").map(Number);
@@ -43,7 +101,10 @@ function renderDay(day, prefix) {
     detail.textContent = prefix === "today" ? "Enjoy a rubbish-free day." : "There is nothing to put out yet.";
   } else {
     title.className = "collection-title";
-    title.textContent = day.collections.map((collection) => collection.name).join(", ");
+    title.append(
+      collectionIconList(day.collections, "collection-icon-list collection-icon-list--title"),
+      document.createTextNode(day.collections.map((collection) => collection.name).join(", ")),
+    );
     detail.textContent = prefix === "today" ? "Put these out for collection today." : "Get these ready tonight.";
   }
   content.append(title, detail);
@@ -68,9 +129,6 @@ function showView(name) {
   document.querySelector(`#${name}-view`).classList.remove("is-hidden");
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("nav-link--active", button.dataset.view === name);
-  });
-  document.querySelectorAll("[data-calendar-period]").forEach((button) => {
-    button.addEventListener("click", () => loadCalendar(button.dataset.calendarPeriod));
   });
   if (name === "home") loadHomeSummary();
   if (name === "calendar") loadCalendar();
@@ -115,7 +173,10 @@ function renderScheduleCard(schedule) {
   card.className = "schedule-card";
   const info = document.createElement("div");
   const title = document.createElement("h2");
-  title.textContent = schedule.collectionTypes.map((collection) => collection.name).join(", ");
+  title.append(
+    collectionIconList(schedule.collectionTypes, "collection-icon-list collection-icon-list--schedule"),
+    document.createTextNode(schedule.collectionTypes.map((collection) => collection.name).join(", ")),
+  );
   const description = document.createElement("p");
   description.textContent = schedule.recurrenceDescription;
   info.append(title, description);
@@ -197,9 +258,13 @@ function renderWeekCalendar(calendar, content) {
     const date = document.createElement("p");
     date.className = "calendar-day-date";
     date.textContent = formatDate(day.date);
-    const collections = document.createElement("p");
+    const collections = document.createElement("div");
     collections.className = "calendar-collections";
-    collections.textContent = day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection";
+    if (day.collections.length) {
+      collections.append(collectionChips(day.collections, "collection-chips collection-chips--calendar"));
+    } else {
+      collections.textContent = "No collection";
+    }
     details.append(label, date, collections);
     card.append(number, details);
     list.append(card);
@@ -241,9 +306,13 @@ function renderMonthCalendar(calendar, content) {
     details.replaceChildren();
     const title = document.createElement("strong");
     title.textContent = formatDate(day.date);
-    const description = document.createElement("p");
-    description.textContent = day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection scheduled";
-    details.append(title, description);
+    if (day.collections.length) {
+      details.append(title, collectionChips(day.collections));
+    } else {
+      const description = document.createElement("p");
+      description.textContent = "No collection scheduled";
+      details.append(title, description);
+    }
   };
   calendar.days.forEach((day) => {
     const button = document.createElement("button");
@@ -254,9 +323,10 @@ function renderMonthCalendar(calendar, content) {
     number.textContent = String(localDateFromIso(day.date).getDate());
     button.append(number);
     if (day.collections.length) {
-      const count = document.createElement("small");
-      count.textContent = day.collections.length === 1 ? "1 item" : `${day.collections.length} items`;
-      button.append(count);
+      const icons = document.createElement("span");
+      icons.className = "month-day-icons";
+      day.collections.forEach((collection) => icons.append(collectionIcon(collection)));
+      button.append(icons);
     }
     button.setAttribute("aria-label", `${formatDate(day.date)}: ${day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection"}`);
     button.addEventListener("click", () => selectDay(day, button));
@@ -279,9 +349,15 @@ async function deleteSchedule(schedule) {
   }
 }
 
-function inputLabel({ name, value, label, checked = false }) {
+function inputLabel({ name, value, label, checked = false, collection = null }) {
   const wrapper = document.createElement("label");
   wrapper.className = "check-option";
+  if (collection) {
+    const presentation = presentationFor(collection);
+    wrapper.classList.add("check-option--collection");
+    wrapper.style.setProperty("--type-color", presentation.color);
+    wrapper.style.setProperty("--type-tint", presentation.tint);
+  }
   const input = document.createElement("input");
   input.type = "checkbox";
   input.name = name;
@@ -289,7 +365,8 @@ function inputLabel({ name, value, label, checked = false }) {
   input.checked = checked;
   const text = document.createElement("span");
   text.textContent = label;
-  wrapper.append(input, text);
+  if (collection) wrapper.append(input, collectionIcon(collection), text);
+  else wrapper.append(input, text);
   return wrapper;
 }
 
@@ -322,6 +399,7 @@ async function openScheduleForm(id = null) {
     value: type.id,
     label: type.name,
     checked: selectedTypes.has(type.id),
+    collection: type,
   })));
 
   const weeklyValues = new Set(schedule?.rule?.kind === "weekly" ? schedule.rule.weekdays : []);
@@ -385,6 +463,9 @@ async function saveSchedule(event) {
 window.addEventListener("DOMContentLoaded", () => {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
+  });
+  document.querySelectorAll("[data-calendar-period]").forEach((button) => {
+    button.addEventListener("click", () => loadCalendar(button.dataset.calendarPeriod));
   });
   document.querySelector("#add-schedule").addEventListener("click", () => openScheduleForm());
   document.querySelector("#back-to-schedules").addEventListener("click", () => showView("schedules"));

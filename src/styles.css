@@ -116,6 +116,8 @@ body {
 .collection-content { min-height: 83px; padding-top: 9px; }
 
 .collection-title {
+  display: flex;
+  align-items: flex-start;
   margin: 0;
   color: #45291c;
   font-size: clamp(1.3rem, 5vw, 1.55rem);
@@ -123,6 +125,11 @@ body {
   letter-spacing: -0.04em;
   line-height: 1.14;
 }
+
+.collection-type-icon { width: 19px; height: 19px; flex: 0 0 auto; }
+.collection-icon-list { display: inline-flex; flex: 0 0 auto; flex-wrap: wrap; gap: 3px; }
+.collection-icon-list--title { margin: 2px 9px 0 0; }
+.collection-icon-list--schedule { margin: 1px 7px 0 0; vertical-align: -3px; }
 
 .collection-title--empty::before { content: "⌁"; margin-right: 8px; color: #d99a25; }
 
@@ -196,6 +203,8 @@ body {
   letter-spacing: -0.025em;
 }
 
+.schedule-card h2 { display: flex; align-items: flex-start; }
+
 .schedule-card p, .empty-state p { margin: 6px 0 0; color: #74503a; font-size: 0.875rem; line-height: 1.45; }
 .schedule-actions { display: flex; flex: 0 0 auto; gap: 2px; }
 .text-button { border-radius: 8px; padding: 6px 7px; font-size: 0.75rem; }
@@ -235,6 +244,8 @@ body {
 }
 
 .check-option input { width: 16px; height: 16px; margin: 0; accent-color: #b86b16; }
+.check-option--collection { border-color: color-mix(in srgb, var(--type-color) 38%, #f0dfbd); background: var(--type-tint); }
+.check-option--collection .collection-type-icon { width: 21px; height: 21px; }
 
 .mode-toggle {
   display: grid;
@@ -312,7 +323,25 @@ body {
 .calendar-date-badge strong { font-size: 1.05rem; line-height: 1.15; }
 .calendar-day-card h3 { margin: 0; color: #45291c; font-size: 0.88rem; font-weight: 850; }
 .calendar-day-date { margin: 2px 0 0; color: #74503a; font-size: 0.7rem; }
-.calendar-collections { margin: 4px 0 0; color: #74503a; font-size: 0.8rem; font-weight: 650; line-height: 1.35; }
+.calendar-collections { margin: 5px 0 0; color: #74503a; font-size: 0.8rem; font-weight: 650; line-height: 1.35; }
+
+.collection-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.collection-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--type-color) 36%, #f0dfbd);
+  border-radius: 999px;
+  padding: 3px 6px 3px 4px;
+  background: var(--type-tint);
+  color: #45291c;
+  font-size: 0.68rem;
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.collection-chip .collection-type-icon { width: 15px; height: 15px; }
+.collection-chips--calendar .collection-chip { font-size: 0.64rem; }
 
 .calendar-month-heading { margin: 27px 0 17px; }
 .calendar-month-heading .eyebrow-text { margin-bottom: 5px; }
@@ -338,13 +367,14 @@ body {
   font-weight: 800;
 }
 
-.month-day small { align-self: stretch; overflow: hidden; border-radius: 4px; padding: 2px; background: #f5e7c8; color: #74503a; font-size: 0.47rem; font-weight: 850; line-height: 1.1; text-align: center; white-space: nowrap; }
+.month-day-icons { display: flex; align-self: stretch; flex-wrap: wrap; justify-content: flex-start; gap: 1px; }
+.month-day-icons .collection-type-icon { width: 12px; height: 12px; }
 .month-day--today { background: #d99a25; }
-.month-day--today small { background: rgb(255 250 240 / 75%); color: #45291c; }
 .month-day--selected { border-color: #b86b16; box-shadow: 0 0 0 1px #b86b16; }
 .calendar-selection { min-height: 73px; margin: 15px 0 22px; border: 1px solid #f0dfbd; border-radius: 14px; padding: 12px; background: #fff; }
 .calendar-selection strong { color: #45291c; font-size: 0.82rem; }
 .calendar-selection p { margin: 5px 0 0; color: #74503a; font-size: 0.82rem; line-height: 1.35; }
+.calendar-selection .collection-chips { margin-top: 8px; }
 
 @media (min-width: 600px) {
   .app-shell { padding-top: 42px; }
