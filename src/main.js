@@ -508,7 +508,7 @@ async function saveNotificationSettings(event) {
     } else if (result.permission === "not-needed") {
       setNotificationStatus("Settings saved. Reminders are off.", "success");
     } else {
-      setNotificationStatus(`Settings saved. ${result.scheduled} upcoming reminder${result.scheduled === 1 ? "" : "s"} scheduled.`, "success");
+      setNotificationStatus(`Settings saved.`, "success");
     }
   } catch (error) {
     setNotificationStatus(String(error), "error");

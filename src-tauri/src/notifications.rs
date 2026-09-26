@@ -58,7 +58,7 @@ pub fn plan_notifications(
                 &mut planned,
                 collection_date,
                 ReminderType::DayBefore,
-                reminder_date.and_time(notification_time(settings.day_before.time)),
+                reminder_date.and_time(notification_time(ReminderType::DayBefore, settings.day_before.time)),
                 "Trash tomorrow",
                 &body,
                 now,
@@ -69,7 +69,7 @@ pub fn plan_notifications(
                 &mut planned,
                 collection_date,
                 ReminderType::DayOf,
-                collection_date.and_time(notification_time(settings.day_of.time)),
+                collection_date.and_time(notification_time(ReminderType::DayOf, settings.day_of.time)),
                 "Trash collection today",
                 &body,
                 now,
@@ -103,8 +103,16 @@ fn push_if_future(
     });
 }
 
-fn notification_time(time: NotificationTime) -> NaiveTime {
-    NaiveTime::from_hms_opt(time.hour(), 0, 0).expect("notification times are valid")
+fn notification_time(reminder_type: ReminderType, time: NotificationTime) -> NaiveTime {
+    let hour = match (reminder_type, time) {
+        (ReminderType::DayOf, NotificationTime::Early) => 6,
+        (ReminderType::DayOf, NotificationTime::Middle) => 8,
+        (ReminderType::DayOf, NotificationTime::Late) => 10,
+        (ReminderType::DayBefore, NotificationTime::Early) => 12,
+        (ReminderType::DayBefore, NotificationTime::Middle) => 18,
+        (ReminderType::DayBefore, NotificationTime::Late) => 21,
+    };
+    NaiveTime::from_hms_opt(hour, 0, 0).expect("notification times are valid")
 }
 
 /// A fixed FNV-1a hash gives Android a deterministic signed 32-bit ID without persisting
@@ -177,7 +185,7 @@ mod tests {
         let before = plan_notifications(&state, &settings, now, 2);
         assert_eq!(before.len(), 1);
         assert_eq!(before[0].reminder_type, ReminderType::DayBefore);
-        assert_eq!(before[0].scheduled_at, date(2026, 9, 20, 6));
+        assert_eq!(before[0].scheduled_at, date(2026, 9, 20, 12));
 
         settings.day_before.enabled = false;
         settings.day_of.enabled = true;
@@ -191,18 +199,30 @@ mod tests {
     }
 
     #[test]
-    fn nominal_times_map_to_early_afternoon_and_late() {
+    fn reminder_times_are_specific_to_each_reminder_type() {
         assert_eq!(
-            notification_time(NotificationTime::Early),
+            notification_time(ReminderType::DayOf, NotificationTime::Early),
             NaiveTime::from_hms_opt(6, 0, 0).unwrap()
         );
         assert_eq!(
-            notification_time(NotificationTime::Afternoon),
+            notification_time(ReminderType::DayOf, NotificationTime::Middle),
+            NaiveTime::from_hms_opt(8, 0, 0).unwrap()
+        );
+        assert_eq!(
+            notification_time(ReminderType::DayOf, NotificationTime::Late),
+            NaiveTime::from_hms_opt(10, 0, 0).unwrap()
+        );
+        assert_eq!(
+            notification_time(ReminderType::DayBefore, NotificationTime::Early),
             NaiveTime::from_hms_opt(12, 0, 0).unwrap()
         );
         assert_eq!(
-            notification_time(NotificationTime::Late),
+            notification_time(ReminderType::DayBefore, NotificationTime::Middle),
             NaiveTime::from_hms_opt(18, 0, 0).unwrap()
+        );
+        assert_eq!(
+            notification_time(ReminderType::DayBefore, NotificationTime::Late),
+            NaiveTime::from_hms_opt(21, 0, 0).unwrap()
         );
     }
 
@@ -231,17 +251,17 @@ mod tests {
             month_plan[0].collection_date,
             NaiveDate::from_ymd_opt(2026, 3, 1).unwrap()
         );
-        assert_eq!(month_plan[0].scheduled_at, date(2026, 2, 28, 18));
+        assert_eq!(month_plan[0].scheduled_at, date(2026, 2, 28, 21));
 
         let year_plan = plan_notifications(&state, &settings, date(2026, 12, 31, 8), 4);
         assert_eq!(
             year_plan[0].collection_date,
             NaiveDate::from_ymd_opt(2027, 1, 3).unwrap()
         );
-        assert_eq!(year_plan[0].scheduled_at, date(2027, 1, 2, 18));
+        assert_eq!(year_plan[0].scheduled_at, date(2027, 1, 2, 21));
 
         settings.day_before.time = NotificationTime::Early;
-        assert!(plan_notifications(&state, &settings, date(2026, 2, 28, 7), 2).is_empty());
+        assert!(plan_notifications(&state, &settings, date(2026, 2, 28, 13), 2).is_empty());
     }
 
     #[test]

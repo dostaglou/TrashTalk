@@ -81,18 +81,9 @@ pub struct ScheduleInput {
 #[serde(rename_all = "snake_case")]
 pub enum NotificationTime {
     Early,
-    Afternoon,
+    #[serde(alias = "afternoon")]
+    Middle,
     Late,
-}
-
-impl NotificationTime {
-    pub fn hour(self) -> u32 {
-        match self {
-            Self::Early => 6,
-            Self::Afternoon => 12,
-            Self::Late => 18,
-        }
-    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -403,7 +394,7 @@ mod tests {
             },
             day_of: ReminderSetting {
                 enabled: true,
-                time: NotificationTime::Afternoon,
+                time: NotificationTime::Middle,
             },
         };
 

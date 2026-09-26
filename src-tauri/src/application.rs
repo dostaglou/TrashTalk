@@ -242,7 +242,7 @@ impl<R: StateRepository> AppService<R> {
                 collection_type_ids: normalized.collection_type_ids,
                 rule: normalized.rule,
             };
-            state.schedules.push(schedule.clone());
+            state.schedules.insert(0, schedule.clone());
             Ok(schedule)
         })
     }
@@ -457,6 +457,35 @@ mod tests {
         assert_eq!(
             service.list_schedules().unwrap()[0].recurrence_description,
             "2nd and 4th Wednesday of each month"
+        );
+    }
+
+    #[test]
+    fn newly_created_schedules_are_listed_first_without_reordering_existing_schedules() {
+        let service = AppService::open(MemoryStore::new()).unwrap();
+        let first = service
+            .create_schedule(weekly_input(
+                vec!["system.combustible"],
+                vec![Weekday::Monday],
+            ))
+            .unwrap();
+        let second = service
+            .create_schedule(weekly_input(
+                vec!["system.glass"],
+                vec![Weekday::Tuesday],
+            ))
+            .unwrap();
+        let third = service
+            .create_schedule(weekly_input(
+                vec!["system.plastics"],
+                vec![Weekday::Wednesday],
+            ))
+            .unwrap();
+
+        let schedules = service.list_schedules().unwrap();
+        assert_eq!(
+            schedules.iter().map(|schedule| schedule.id.as_str()).collect::<Vec<_>>(),
+            vec![third.id.as_str(), second.id.as_str(), first.id.as_str()]
         );
     }
 

@@ -120,25 +120,6 @@
           <p class="page-intro">Choose broad delivery times for local Android reminders. Delivery may be a little later to preserve battery life.</p>
         </div>
         <form id="notification-settings-form" class="notification-settings" novalidate>
-          <section class="notification-card" id="day-before-reminder">
-            <div class="notification-card__heading">
-              <div>
-                <h2>Day before</h2>
-                <p>Time to get tomorrow's collection ready.</p>
-              </div>
-              <label class="switch-label" for="day-before-enabled">
-                <span class="sr-only">Enable day-before reminders</span>
-                <input id="day-before-enabled" type="checkbox" />
-                <span class="switch" aria-hidden="true"></span>
-              </label>
-            </div>
-            <div class="time-options" id="day-before-times">
-              <label class="time-option"><input type="radio" name="day-before-time" value="early" checked /><span><strong>Early</strong><small>Around 6 AM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="afternoon" /><span><strong>Afternoon</strong><small>Around noon</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="late" /><span><strong>Late</strong><small>Around 6 PM</small></span></label>
-            </div>
-          </section>
-
           <section class="notification-card" id="day-of-reminder">
             <div class="notification-card__heading">
               <div>
@@ -152,11 +133,31 @@
               </label>
             </div>
             <div class="time-options" id="day-of-times">
-              <label class="time-option"><input type="radio" name="day-of-time" value="early" checked /><span><strong>Early</strong><small>Around 6 AM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="afternoon" /><span><strong>Afternoon</strong><small>Around noon</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="late" /><span><strong>Late</strong><small>Around 6 PM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="early" checked /><span><strong>Early Morning</strong><small>Around 6 AM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="middle" /><span><strong>Mid Morning</strong><small>Around 8 AM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="late" /><span><strong>Late Morning</strong><small>Around 10 AM</small></span></label>
             </div>
           </section>
+
+          <section class="notification-card" id="day-before-reminder">
+            <div class="notification-card__heading">
+              <div>
+                <h2>Day before</h2>
+                <p>Time to get tomorrow's collection ready.</p>
+              </div>
+              <label class="switch-label" for="day-before-enabled">
+                <span class="sr-only">Enable day-before reminders</span>
+                <input id="day-before-enabled" type="checkbox" />
+                <span class="switch" aria-hidden="true"></span>
+              </label>
+            </div>
+            <div class="time-options" id="day-before-times">
+              <label class="time-option"><input type="radio" name="day-before-time" value="early" checked /><span><strong>Early Afternoon</strong><small>Around 12 PM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="middle" /><span><strong>Mid Evening</strong><small>Around 6 PM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="late" /><span><strong>Late Evening</strong><small>Around 9 PM</small></span></label>
+            </div>
+          </section>
+
           <p id="notification-status" class="form-status is-hidden" role="status"></p>
           <button class="primary-button" type="submit">Save reminder settings</button>
         </form>
