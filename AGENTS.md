@@ -32,6 +32,7 @@
 - The shared app shell owns primary-destination navigation. Preserve visible navigation controls and keep swipe navigation bounded, clearly horizontal, and non-interfering with vertical scrolling or interactive child controls.
 - Keep the canonical TrashTalk mark as a source SVG in `src/assets`; use it for the in-app brand and regenerate Android launcher resources with `npm run tauri icon -- src/assets/trashtalk-mark.svg -o src-tauri/icons`.
 - Android uses edge-to-edge system bars: extend the dark brand header behind the transparent status bar, rely on safe-area insets for content placement, use light status icons there, and retain dark navigation icons over the light bottom surface.
+- TrashTalk currently has no Android file-sharing or export feature and must not declare a `FileProvider` for completeness. If a future feature requires file sharing, expose only the smallest app-owned directory that the dependency needs; never restore a broad external-storage root such as `<external-path path="." />`.
 
 ## Commands
 
