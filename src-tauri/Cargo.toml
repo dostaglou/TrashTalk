@@ -33,3 +33,7 @@ lto = true
 opt-level = 3
 panic = "abort"
 strip = true
+
+[toolchain]
+channel = "1.98.1"
+profile = "default"
