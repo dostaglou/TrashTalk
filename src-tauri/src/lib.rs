@@ -43,6 +43,22 @@ fn list_collection_types(
 }
 
 #[tauri::command]
+fn create_custom_collection_type(
+    name: String,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<CollectionType, String> {
+    service.create_custom_collection_type(name)
+}
+
+#[tauri::command]
+fn delete_custom_collection_type(
+    id: String,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<(), String> {
+    service.delete_custom_collection_type(&id)
+}
+
+#[tauri::command]
 fn get_notification_settings(
     service: tauri::State<'_, RuntimeAppService>,
 ) -> Result<NotificationSettings, String> {
@@ -116,6 +132,8 @@ pub fn run() {
             get_collection_calendar,
             get_calendar_period,
             list_collection_types,
+            create_custom_collection_type,
+            delete_custom_collection_type,
             get_notification_settings,
             save_notification_settings,
             get_notification_plan,

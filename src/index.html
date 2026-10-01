@@ -74,6 +74,15 @@
           <button class="primary-button primary-button--compact" type="button" id="add-schedule">Add</button>
         </div>
         <div id="schedule-list" class="schedule-list" aria-live="polite"></div>
+        <section class="custom-types-section" aria-labelledby="custom-types-heading">
+          <div class="section-heading">
+            <div>
+              <p class="eyebrow-text">Personalise</p>
+              <h2 id="custom-types-heading">Custom trash types</h2>
+            </div>
+          </div>
+          <div id="custom-type-list" class="custom-type-list" aria-live="polite"></div>
+        </section>
       </section>
 
       <section id="schedule-form-view" class="view is-hidden" aria-labelledby="schedule-form-heading">
@@ -88,6 +97,9 @@
             <legend>Collection types</legend>
             <p class="field-hint">Choose everything collected on this schedule.</p>
             <div id="collection-type-options" class="selection-grid"></div>
+            <label class="field-label field-label--spaced" for="custom-collection-type">Custom trash type</label>
+            <input id="custom-collection-type" class="text-field" type="text" minlength="1" maxlength="100" placeholder="e.g. Batteries" />
+            <p class="field-hint">Optional. Enter 1–100 characters.</p>
           </fieldset>
           <fieldset class="form-section">
             <legend>Repeat</legend>

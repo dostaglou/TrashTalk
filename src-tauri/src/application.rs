@@ -184,6 +184,52 @@ impl<R: StateRepository> AppService<R> {
         Ok(self.lock_state()?.collection_types.clone())
     }
 
+    pub fn create_custom_collection_type(&self, name: String) -> Result<CollectionType, String> {
+        let name = name.trim().to_owned();
+        let character_count = name.chars().count();
+        if !(1..=100).contains(&character_count) {
+            return Err("Custom trash type must be between 1 and 100 characters.".to_owned());
+        }
+
+        self.mutate_state(move |state| {
+            if let Some(existing) = state
+                .collection_types
+                .iter()
+                .find(|collection_type| !collection_type.is_system && collection_type.name == name)
+            {
+                return Ok(existing.clone());
+            }
+
+            let collection_type = CollectionType {
+                id: format!("custom.{}", Uuid::new_v4()),
+                name,
+                is_system: false,
+            };
+            state.collection_types.push(collection_type.clone());
+            Ok(collection_type)
+        })
+    }
+
+    pub fn delete_custom_collection_type(&self, id: &str) -> Result<(), String> {
+        let id = id.to_owned();
+        self.mutate_state(move |state| {
+            let index = state
+                .collection_types
+                .iter()
+                .position(|collection_type| collection_type.id == id)
+                .ok_or_else(|| "Collection type not found.".to_owned())?;
+            if state.collection_types[index].is_system {
+                return Err("System collection types cannot be deleted.".to_owned());
+            }
+
+            state.collection_types.remove(index);
+            state.schedules.retain(|schedule| {
+                !schedule.collection_type_ids.iter().any(|type_id| type_id == &id)
+            });
+            Ok(())
+        })
+    }
+
     pub fn notification_settings(&self) -> Result<NotificationSettings, String> {
         Ok(self.lock_state()?.notification_settings.clone())
     }
@@ -509,6 +555,49 @@ mod tests {
         service.delete_schedule(&created.id).unwrap();
         assert!(service.list_schedules().unwrap().is_empty());
         assert_eq!(service.list_collection_types().unwrap().len(), 8);
+    }
+
+    #[test]
+    fn custom_collection_types_are_validated_persisted_and_reused() {
+        let service = AppService::open(MemoryStore::new()).unwrap();
+        let created = service
+            .create_custom_collection_type("Batteries".to_owned())
+            .unwrap();
+        assert_eq!(created.name, "Batteries");
+        assert!(!created.is_system);
+        assert_eq!(service.list_collection_types().unwrap().len(), 9);
+
+        let reused = service
+            .create_custom_collection_type("Batteries".to_owned())
+            .unwrap();
+        assert_eq!(reused.id, created.id);
+        assert!(service
+            .create_custom_collection_type(" ".to_owned())
+            .is_err());
+        assert!(service
+            .create_custom_collection_type("x".repeat(101))
+            .is_err());
+    }
+
+    #[test]
+    fn deleting_custom_collection_type_removes_referencing_schedules_but_not_system_types() {
+        let service = AppService::open(MemoryStore::new()).unwrap();
+        let custom = service
+            .create_custom_collection_type("Batteries".to_owned())
+            .unwrap();
+        let custom_schedule = service
+            .create_schedule(weekly_input(vec![custom.id.as_str()], vec![Weekday::Monday]))
+            .unwrap();
+        let system_schedule = service
+            .create_schedule(weekly_input(vec!["system.glass"], vec![Weekday::Tuesday]))
+            .unwrap();
+
+        service.delete_custom_collection_type(&custom.id).unwrap();
+
+        assert!(service.list_collection_types().unwrap().iter().all(|item| item.id != custom.id));
+        assert!(service.get_schedule(&custom_schedule.id).is_err());
+        assert_eq!(service.get_schedule(&system_schedule.id).unwrap().id, system_schedule.id);
+        assert!(service.delete_custom_collection_type("system.glass").is_err());
     }
 
     #[test]

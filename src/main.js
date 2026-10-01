@@ -265,7 +265,11 @@ async function loadSchedules() {
   const list = document.querySelector("#schedule-list");
   list.replaceChildren();
   try {
-    const schedules = await invoke("list_schedules");
+    const [schedules, collectionTypes] = await Promise.all([
+      invoke("list_schedules"),
+      invoke("list_collection_types"),
+    ]);
+    renderCustomTypes(collectionTypes);
     if (schedules.length === 0) {
       const empty = document.createElement("div");
       empty.className = "empty-state";
@@ -282,6 +286,35 @@ async function loadSchedules() {
   } catch (error) {
     list.textContent = "Unable to load schedules. Please restart TrashTalk.";
     console.error("Unable to load schedules", error);
+  }
+}
+
+function renderCustomTypes(collectionTypes) {
+  const list = document.querySelector("#custom-type-list");
+  list.replaceChildren();
+  const customTypes = collectionTypes.filter((type) => !type.isSystem);
+  if (customTypes.length === 0) {
+    list.textContent = "Custom trash types you create will appear here.";
+    return;
+  }
+  customTypes.forEach((type) => {
+    const row = document.createElement("div");
+    row.className = "custom-type-row";
+    row.append(collectionIcon(type), document.createTextNode(type.name));
+    row.append(makeButton("Remove", "text-button", () => deleteCustomType(type)));
+    list.append(row);
+  });
+}
+
+async function deleteCustomType(type) {
+  if (!window.confirm(`Remove “${type.name}”? Any schedules using it will also be removed.`)) return;
+  try {
+    await invoke("delete_custom_collection_type", { id: type.id });
+    await reconcileNativeNotifications();
+    await loadSchedules();
+    await loadHomeSummary();
+  } catch (error) {
+    window.alert(String(error));
   }
 }
 
@@ -597,6 +630,9 @@ async function openScheduleForm(id = null) {
     checked: selectedTypes.has(type.id),
     collection: type,
   })));
+  const customType = collectionTypes.find((type) =>
+    !type.isSystem && selectedTypes.has(type.id));
+  document.querySelector("#custom-collection-type").value = customType?.name || "";
 
   const weeklyValues = new Set(schedule?.rule?.kind === "weekly" ? schedule.rule.weekdays : []);
   const weekdayOptions = document.querySelector("#weekday-options");
@@ -645,6 +681,11 @@ async function saveSchedule(event) {
         },
   };
   try {
+    const customName = document.querySelector("#custom-collection-type").value.trim();
+    if (customName) {
+      const customType = await invoke("create_custom_collection_type", { name: customName });
+      input.collectionTypeIds.push(customType.id);
+    }
     if (editingScheduleId) {
       await invoke("update_schedule", { id: editingScheduleId, input });
     } else {

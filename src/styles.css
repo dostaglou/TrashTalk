@@ -346,6 +346,11 @@ body {
 .schedule-actions { display: flex; flex: 0 0 auto; gap: 2px; }
 .text-button { border-radius: 8px; padding: 6px 7px; font-size: 0.75rem; }
 .text-button:active { background: #f5e7c8; color: #45291c; }
+.custom-types-section { margin-top: 28px; }
+.section-heading h2 { margin: 4px 0 0; font-size: 1.2rem; }
+.custom-type-list { margin-top: 10px; border-top: 1px solid #eadbc5; }
+.custom-type-row { display: flex; align-items: center; gap: 9px; padding: 12px 2px; border-bottom: 1px solid #eadbc5; color: #45291c; }
+.custom-type-row .text-button { margin-left: auto; }
 
 .empty-state { padding: 30px 22px; border-style: dashed; text-align: center; }
 .empty-state .text-button { margin-top: 12px; color: #b86b16; }
@@ -366,6 +371,17 @@ body {
 .form-section + .form-section { margin-top: 26px; }
 .form-section legend, .field-label { display: block; margin: 0 0 7px; color: #45291c; font-size: 0.9rem; font-weight: 800; }
 .field-hint { margin: 0 0 13px; color: #74503a; font-size: 0.8rem; line-height: 1.4; }
+.text-field {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #e3cfa8;
+  border-radius: 10px;
+  padding: 11px 12px;
+  background: #fffdf9;
+  color: #45291c;
+  font: inherit;
+}
+.text-field:focus { border-color: #d99a25; outline: 3px solid rgb(217 154 37 / 22%); }
 
 .selection-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
 .selection-grid--days { grid-template-columns: repeat(2, minmax(0, 1fr)); }
