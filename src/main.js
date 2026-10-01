@@ -232,6 +232,8 @@ async function reconcileNativeNotifications({ requestPermission: shouldRequestPe
         channelId: reminderChannel.id,
         title: notification.title,
         body: notification.body,
+        icon: "trashtalk_notification",
+        iconColor: "#d99a25",
         schedule: NotificationSchedule.at(localDateTimeFromRust(notification.scheduledAt), false, true),
       });
     });
