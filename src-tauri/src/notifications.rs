@@ -40,20 +40,34 @@ pub fn plan_notifications(
             break;
         };
         let collections = collections_for_date(state, collection_date);
-        let (title, body) = if collections.is_empty() {
-            ("Nothing to put out today", String::new())
+        let (day_of_title, day_before_title) = if collections.is_empty() {
+            (
+                "Nothing to put out today".to_owned(),
+                "Nothing to put out tomorrow".to_owned(),
+            )
         } else {
             (
-                "Trash collection today",
-                join_collection_names(
-                    collections
-                        .iter()
-                        .map(|collection| collection.name.as_str())
-                        .collect(),
+                format!(
+                    "Today's trash: {}",
+                    join_collection_names(
+                        collections
+                            .iter()
+                            .map(|collection| collection.name.as_str())
+                            .collect(),
+                    )
+                ),
+                format!(
+                    "Tomorrow's trash: {}",
+                    join_collection_names(
+                        collections
+                            .iter()
+                            .map(|collection| collection.name.as_str())
+                            .collect(),
+                    )
                 ),
             )
         };
-        let day_before_body = body.as_str();
+        let body = String::new();
 
         if settings.day_before.enabled {
             let Some(reminder_date) = collection_date.pred_opt() else {
@@ -64,12 +78,8 @@ pub fn plan_notifications(
                 collection_date,
                 ReminderType::DayBefore,
                 reminder_date.and_time(settings.day_before.time.as_naive_time()),
-                if collections.is_empty() {
-                    "Nothing to put out tomorrow"
-                } else {
-                    "Trash tomorrow"
-                },
-                day_before_body,
+                &day_before_title,
+                &body,
                 now,
             );
         }
@@ -79,7 +89,7 @@ pub fn plan_notifications(
                 collection_date,
                 ReminderType::DayOf,
                 collection_date.and_time(settings.day_of.time.as_naive_time()),
-                title,
+                &day_of_title,
                 &body,
                 now,
             );
@@ -207,10 +217,9 @@ mod tests {
         assert_eq!(plan.len(), 8);
         let collection = plan
             .iter()
-            .find(|item| !item.body.starts_with("There"))
+            .find(|item| item.title == "Today's trash: Combustible and Plastics")
             .unwrap();
-        assert_eq!(collection.body, "Combustible and Plastics");
-        assert_eq!(collection.title, "Trash collection today");
+        assert!(collection.body.is_empty());
         let empty = plan
             .iter()
             .find(|item| item.title == "Nothing to put out today")
@@ -261,12 +270,12 @@ mod tests {
         assert_ne!(
             initial
                 .iter()
-                .find(|item| item.body == "Combustible")
+                .find(|item| item.title == "Today's trash: Combustible")
                 .unwrap()
                 .collection_date,
             edited
                 .iter()
-                .find(|item| item.body == "Combustible")
+                .find(|item| item.title == "Today's trash: Combustible")
                 .unwrap()
                 .collection_date
         );
