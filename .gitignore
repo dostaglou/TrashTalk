@@ -27,3 +27,4 @@ dist-ssr
 *.keystore
 
 builds/
+plans/
