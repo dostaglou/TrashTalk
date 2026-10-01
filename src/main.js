@@ -48,11 +48,12 @@ const primaryViews = ["home", "calendar", "schedules", "notifications"];
 let activePrimaryView = "home";
 
 const reminderChannel = {
-  id: "trash-talk-reminders",
+  id: "trash-talk-reminders-v2",
   name: "TrashTalk reminders",
   description: "Upcoming trash collection reminders",
   importance: Importance.Default,
   vibration: true,
+  sound: "notification_ping",
 };
 
 function presentationFor(collection) {
