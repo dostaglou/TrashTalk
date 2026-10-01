@@ -470,10 +470,7 @@ mod tests {
             ))
             .unwrap();
         let second = service
-            .create_schedule(weekly_input(
-                vec!["system.glass"],
-                vec![Weekday::Tuesday],
-            ))
+            .create_schedule(weekly_input(vec!["system.glass"], vec![Weekday::Tuesday]))
             .unwrap();
         let third = service
             .create_schedule(weekly_input(
@@ -484,7 +481,10 @@ mod tests {
 
         let schedules = service.list_schedules().unwrap();
         assert_eq!(
-            schedules.iter().map(|schedule| schedule.id.as_str()).collect::<Vec<_>>(),
+            schedules
+                .iter()
+                .map(|schedule| schedule.id.as_str())
+                .collect::<Vec<_>>(),
             vec![third.id.as_str(), second.id.as_str(), first.id.as_str()]
         );
     }

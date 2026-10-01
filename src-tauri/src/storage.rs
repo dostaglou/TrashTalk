@@ -106,13 +106,23 @@ impl StateRepository for JsonStateStore {
 }
 
 fn migrate_legacy_notification_times(value: &mut Value) {
-    let Some(object) = value.as_object_mut() else { return };
+    let Some(object) = value.as_object_mut() else {
+        return;
+    };
     let version = object.get("version").and_then(Value::as_u64).unwrap_or(1);
-    if version >= 3 { return; }
+    if version >= 3 {
+        return;
+    }
 
     for (field, mapping) in [
-        ("dayOf", [("early", "06:00"), ("middle", "08:00"), ("late", "10:00")]),
-        ("dayBefore", [("early", "12:00"), ("middle", "18:00"), ("late", "21:00")]),
+        (
+            "dayOf",
+            [("early", "06:00"), ("middle", "08:00"), ("late", "10:00")],
+        ),
+        (
+            "dayBefore",
+            [("early", "12:00"), ("middle", "18:00"), ("late", "21:00")],
+        ),
     ] {
         let Some(time) = object
             .get_mut("notificationSettings")
@@ -120,7 +130,9 @@ fn migrate_legacy_notification_times(value: &mut Value) {
             .and_then(|settings| settings.get_mut(field))
             .and_then(Value::as_object_mut)
             .and_then(|setting| setting.get_mut("time"))
-        else { continue };
+        else {
+            continue;
+        };
         let Some(old) = time.as_str() else { continue };
         if let Some((_, replacement)) = mapping.iter().find(|(name, _)| *name == old) {
             *time = Value::String((*replacement).to_owned());

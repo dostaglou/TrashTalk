@@ -117,8 +117,8 @@ impl<'de> Deserialize<'de> for NotificationTime {
         D: serde::Deserializer<'de>,
     {
         let value = String::deserialize(deserializer)?;
-        let parsed = NaiveTime::parse_from_str(&value, "%H:%M")
-            .map_err(serde::de::Error::custom)?;
+        let parsed =
+            NaiveTime::parse_from_str(&value, "%H:%M").map_err(serde::de::Error::custom)?;
         Self::try_from_hm(parsed.hour(), parsed.minute()).map_err(serde::de::Error::custom)
     }
 }
