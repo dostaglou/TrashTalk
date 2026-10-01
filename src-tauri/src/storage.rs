@@ -1,4 +1,5 @@
 use crate::domain::AppState;
+use serde_json::Value;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -75,7 +76,11 @@ impl JsonStateStore {
 impl StateRepository for JsonStateStore {
     fn load(&self) -> Result<AppState, StoreError> {
         match fs::read_to_string(&self.path) {
-            Ok(contents) => Ok(serde_json::from_str(&contents)?),
+            Ok(contents) => {
+                let mut value: Value = serde_json::from_str(&contents)?;
+                migrate_legacy_notification_times(&mut value);
+                Ok(serde_json::from_value(value)?)
+            }
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(AppState::default()),
             Err(error) => Err(error.into()),
         }
@@ -97,6 +102,29 @@ impl StateRepository for JsonStateStore {
         // A best-effort directory sync makes the rename durable where supported.
         let _ = File::open(parent).and_then(|directory| directory.sync_all());
         Ok(())
+    }
+}
+
+fn migrate_legacy_notification_times(value: &mut Value) {
+    let Some(object) = value.as_object_mut() else { return };
+    let version = object.get("version").and_then(Value::as_u64).unwrap_or(1);
+    if version >= 3 { return; }
+
+    for (field, mapping) in [
+        ("dayOf", [("early", "06:00"), ("middle", "08:00"), ("late", "10:00")]),
+        ("dayBefore", [("early", "12:00"), ("middle", "18:00"), ("late", "21:00")]),
+    ] {
+        let Some(time) = object
+            .get_mut("notificationSettings")
+            .and_then(Value::as_object_mut)
+            .and_then(|settings| settings.get_mut(field))
+            .and_then(Value::as_object_mut)
+            .and_then(|setting| setting.get_mut("time"))
+        else { continue };
+        let Some(old) = time.as_str() else { continue };
+        if let Some((_, replacement)) = mapping.iter().find(|(name, _)| *name == old) {
+            *time = Value::String((*replacement).to_owned());
+        }
     }
 }
 

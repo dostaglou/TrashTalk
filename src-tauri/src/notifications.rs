@@ -1,7 +1,7 @@
 //! Pure notification planning. This module deliberately has no Tauri or Android dependency.
 
-use crate::domain::{collections_for_date, AppState, NotificationSettings, NotificationTime};
-use chrono::{Days, NaiveDate, NaiveDateTime, NaiveTime};
+use crate::domain::{collections_for_date, AppState, NotificationSettings};
+use chrono::{Days, NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
 pub const NOTIFICATION_HORIZON_DAYS: u32 = 30;
@@ -58,7 +58,7 @@ pub fn plan_notifications(
                 &mut planned,
                 collection_date,
                 ReminderType::DayBefore,
-                reminder_date.and_time(notification_time(ReminderType::DayBefore, settings.day_before.time)),
+                reminder_date.and_time(settings.day_before.time.as_naive_time()),
                 "Trash tomorrow",
                 &body,
                 now,
@@ -69,7 +69,7 @@ pub fn plan_notifications(
                 &mut planned,
                 collection_date,
                 ReminderType::DayOf,
-                collection_date.and_time(notification_time(ReminderType::DayOf, settings.day_of.time)),
+                collection_date.and_time(settings.day_of.time.as_naive_time()),
                 "Trash collection today",
                 &body,
                 now,
@@ -101,18 +101,6 @@ fn push_if_future(
         title: title.to_owned(),
         body: body.to_owned(),
     });
-}
-
-fn notification_time(reminder_type: ReminderType, time: NotificationTime) -> NaiveTime {
-    let hour = match (reminder_type, time) {
-        (ReminderType::DayOf, NotificationTime::Early) => 6,
-        (ReminderType::DayOf, NotificationTime::Middle) => 8,
-        (ReminderType::DayOf, NotificationTime::Late) => 10,
-        (ReminderType::DayBefore, NotificationTime::Early) => 12,
-        (ReminderType::DayBefore, NotificationTime::Middle) => 18,
-        (ReminderType::DayBefore, NotificationTime::Late) => 21,
-    };
-    NaiveTime::from_hms_opt(hour, 0, 0).expect("notification times are valid")
 }
 
 /// A fixed FNV-1a hash gives Android a deterministic signed 32-bit ID without persisting
@@ -185,7 +173,7 @@ mod tests {
         let before = plan_notifications(&state, &settings, now, 2);
         assert_eq!(before.len(), 1);
         assert_eq!(before[0].reminder_type, ReminderType::DayBefore);
-        assert_eq!(before[0].scheduled_at, date(2026, 9, 20, 12));
+        assert_eq!(before[0].scheduled_at, date(2026, 9, 20, 18));
 
         settings.day_before.enabled = false;
         settings.day_of.enabled = true;
@@ -196,34 +184,6 @@ mod tests {
 
         settings.day_before.enabled = true;
         assert_eq!(plan_notifications(&state, &settings, now, 2).len(), 2);
-    }
-
-    #[test]
-    fn reminder_times_are_specific_to_each_reminder_type() {
-        assert_eq!(
-            notification_time(ReminderType::DayOf, NotificationTime::Early),
-            NaiveTime::from_hms_opt(6, 0, 0).unwrap()
-        );
-        assert_eq!(
-            notification_time(ReminderType::DayOf, NotificationTime::Middle),
-            NaiveTime::from_hms_opt(8, 0, 0).unwrap()
-        );
-        assert_eq!(
-            notification_time(ReminderType::DayOf, NotificationTime::Late),
-            NaiveTime::from_hms_opt(10, 0, 0).unwrap()
-        );
-        assert_eq!(
-            notification_time(ReminderType::DayBefore, NotificationTime::Early),
-            NaiveTime::from_hms_opt(12, 0, 0).unwrap()
-        );
-        assert_eq!(
-            notification_time(ReminderType::DayBefore, NotificationTime::Middle),
-            NaiveTime::from_hms_opt(18, 0, 0).unwrap()
-        );
-        assert_eq!(
-            notification_time(ReminderType::DayBefore, NotificationTime::Late),
-            NaiveTime::from_hms_opt(21, 0, 0).unwrap()
-        );
     }
 
     #[test]
@@ -245,7 +205,7 @@ mod tests {
         let state = weekly_state(vec![Weekday::Sunday], vec!["system.glass"]);
         let mut settings = NotificationSettings::default();
         settings.day_before.enabled = true;
-        settings.day_before.time = NotificationTime::Late;
+        settings.day_before.time = crate::domain::NotificationTime::from_hm(21, 0);
         let month_plan = plan_notifications(&state, &settings, date(2026, 2, 28, 8), 2);
         assert_eq!(
             month_plan[0].collection_date,
@@ -260,7 +220,7 @@ mod tests {
         );
         assert_eq!(year_plan[0].scheduled_at, date(2027, 1, 2, 21));
 
-        settings.day_before.time = NotificationTime::Early;
+        settings.day_before.time = crate::domain::NotificationTime::from_hm(12, 0);
         assert!(plan_notifications(&state, &settings, date(2026, 2, 28, 13), 2).is_empty());
     }
 

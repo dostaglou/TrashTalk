@@ -1,8 +1,8 @@
-use chrono::{Datelike, NaiveDate, Weekday as ChronoWeekday};
+use chrono::{Datelike, NaiveDate, NaiveTime, Timelike, Weekday as ChronoWeekday};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const CURRENT_STATE_VERSION: u32 = 2;
+pub const CURRENT_STATE_VERSION: u32 = 3;
 
 pub type CollectionTypeId = String;
 
@@ -75,15 +75,52 @@ pub struct ScheduleInput {
     pub rule: ScheduleRule,
 }
 
-/// The three deliberately broad delivery periods offered by the product.
-/// They are nominal local times, not exact-alarm guarantees.
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum NotificationTime {
-    Early,
-    #[serde(alias = "afternoon")]
-    Middle,
-    Late,
+/// A local notification time.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NotificationTime(NaiveTime);
+
+impl NotificationTime {
+    pub fn from_hm(hour: u32, minute: u32) -> Self {
+        Self::try_from_hm(hour, minute).expect("notification times must be valid")
+    }
+
+    fn try_from_hm(hour: u32, minute: u32) -> Result<Self, String> {
+        if hour > 23 || minute > 59 {
+            return Err("notification time must be valid".to_owned());
+        }
+        Ok(Self(NaiveTime::from_hms_opt(hour, minute, 0).unwrap()))
+    }
+
+    pub fn as_naive_time(self) -> NaiveTime {
+        self.0
+    }
+}
+
+impl Default for NotificationTime {
+    fn default() -> Self {
+        Self::from_hm(6, 0)
+    }
+}
+
+impl Serialize for NotificationTime {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(&self.0.format("%H:%M").to_string())
+    }
+}
+
+impl<'de> Deserialize<'de> for NotificationTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = String::deserialize(deserializer)?;
+        let parsed = NaiveTime::parse_from_str(&value, "%H:%M")
+            .map_err(serde::de::Error::custom)?;
+        Self::try_from_hm(parsed.hour(), parsed.minute()).map_err(serde::de::Error::custom)
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -97,16 +134,28 @@ impl Default for ReminderSetting {
     fn default() -> Self {
         Self {
             enabled: false,
-            time: NotificationTime::Early,
+            time: NotificationTime::default(),
         }
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct NotificationSettings {
     pub day_before: ReminderSetting,
     pub day_of: ReminderSetting,
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            day_before: ReminderSetting {
+                enabled: false,
+                time: NotificationTime::from_hm(18, 0),
+            },
+            day_of: ReminderSetting::default(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -390,11 +439,11 @@ mod tests {
         state.notification_settings = NotificationSettings {
             day_before: ReminderSetting {
                 enabled: true,
-                time: NotificationTime::Late,
+                time: NotificationTime::from_hm(21, 0),
             },
             day_of: ReminderSetting {
                 enabled: true,
-                time: NotificationTime::Middle,
+                time: NotificationTime::from_hm(18, 0),
             },
         };
 

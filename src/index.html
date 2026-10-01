@@ -133,9 +133,9 @@
               </label>
             </div>
             <div class="time-options" id="day-of-times">
-              <label class="time-option"><input type="radio" name="day-of-time" value="early" checked /><span><strong>Early Morning</strong><small>Around 6 AM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="middle" /><span><strong>Mid Morning</strong><small>Around 8 AM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="late" /><span><strong>Late Morning</strong><small>Around 10 AM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="06:00" checked /><span><strong>Morning</strong><small>~06:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="08:00" /><span><strong>Mid morning</strong><small>~08:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="custom" /><span><strong>Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-of-custom-time">Select</button><input class="custom-time-input" type="time" id="day-of-custom-time" min="00:00" max="23:59" step="60" value="06:00" aria-label="Choose custom day-of reminder time" /></label>
             </div>
           </section>
 
@@ -152,9 +152,9 @@
               </label>
             </div>
             <div class="time-options" id="day-before-times">
-              <label class="time-option"><input type="radio" name="day-before-time" value="early" checked /><span><strong>Early Afternoon</strong><small>Around 12 PM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="middle" /><span><strong>Mid Evening</strong><small>Around 6 PM</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="late" /><span><strong>Late Evening</strong><small>Around 9 PM</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="18:00" checked /><span><strong>Evening</strong><small>~18:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="21:00" /><span><strong>Late evening</strong><small>~21:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="custom" /><span><strong>Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-before-custom-time">Select</button><input class="custom-time-input" type="time" id="day-before-custom-time" min="00:00" max="23:59" step="60" value="18:00" aria-label="Choose custom day-before reminder time" /></label>
             </div>
           </section>
 

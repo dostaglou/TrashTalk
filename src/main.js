@@ -452,10 +452,18 @@ function renderMonthCalendar(calendar, content) {
   content.append(heading, weekdayLabels, grid, details);
 }
 
+function selectedReminderTime(kind) {
+  const value = document.querySelector(`input[name="${kind}-time"]:checked`).value;
+  return value === "custom" ? document.querySelector(`#${kind}-custom-time`).value : value;
+}
+
 function updateReminderCard(kind) {
   const enabled = document.querySelector(`#${kind}-enabled`).checked;
   const card = document.querySelector(`#${kind}-reminder`);
   const choices = document.querySelector(`#${kind}-times`);
+  const customInput = document.querySelector(`#${kind}-custom-time`);
+  const customButton = document.querySelector(`[data-time-input="${kind}-custom-time"]`);
+  customButton.textContent = customInput.value ? `~${customInput.value}` : "Select";
   card.classList.toggle("notification-card--disabled", !enabled);
   choices.classList.toggle("is-hidden", !enabled);
   choices.querySelectorAll("input").forEach((input) => { input.disabled = !enabled; });
@@ -474,7 +482,13 @@ async function loadNotificationSettings() {
     ["day-before", "day-of"].forEach((kind) => {
       const setting = kind === "day-before" ? settings.dayBefore : settings.dayOf;
       document.querySelector(`#${kind}-enabled`).checked = setting.enabled;
-      document.querySelector(`input[name="${kind}-time"][value="${setting.time}"]`).checked = true;
+      const preset = document.querySelector(`input[name="${kind}-time"][value="${setting.time}"]`);
+      if (preset) {
+        preset.checked = true;
+      } else {
+        document.querySelector(`input[name="${kind}-time"][value="custom"]`).checked = true;
+        document.querySelector(`#${kind}-custom-time`).value = setting.time;
+      }
       updateReminderCard(kind);
     });
   } catch (error) {
@@ -486,14 +500,15 @@ async function loadNotificationSettings() {
 async function saveNotificationSettings(event) {
   event.preventDefault();
   setNotificationStatus();
+  const selectedTime = (kind) => selectedReminderTime(kind);
   const settings = {
     dayBefore: {
       enabled: document.querySelector("#day-before-enabled").checked,
-      time: document.querySelector('input[name="day-before-time"]:checked').value,
+      time: selectedTime("day-before"),
     },
     dayOf: {
       enabled: document.querySelector("#day-of-enabled").checked,
-      time: document.querySelector('input[name="day-of-time"]:checked').value,
+      time: selectedTime("day-of"),
     },
   };
   try {
@@ -653,6 +668,18 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelector("#notification-settings-form").addEventListener("submit", saveNotificationSettings);
   ["day-before", "day-of"].forEach((kind) => {
     document.querySelector(`#${kind}-enabled`).addEventListener("change", () => updateReminderCard(kind));
+    document.querySelectorAll(`input[name="${kind}-time"], #${kind}-custom-time`).forEach((input) => {
+      input.addEventListener("change", () => updateReminderCard(kind));
+      input.addEventListener("input", () => updateReminderCard(kind));
+    });
+  });
+  document.querySelectorAll(".custom-time-button").forEach((button) => {
+    button.addEventListener("click", (event) => {
+      event.preventDefault();
+      const input = document.querySelector(`#${button.dataset.timeInput}`);
+      input.showPicker?.();
+      input.focus();
+    });
   });
   document.querySelectorAll('input[name="recurrence"]').forEach((input) => {
     input.addEventListener("change", () => setRecurrenceMode(input.value));
