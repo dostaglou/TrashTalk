@@ -31,6 +31,11 @@ const weekdays = [
   ["saturday", "Saturday"],
 ];
 
+const defaultReminderTimes = {
+  "day-of": "06:00",
+  "day-before": "18:00",
+};
+
 const collectionPresentation = {
   "system.combustible": { icon: combustibleIcon, color: "#fb923c", tint: "#fff1e6" },
   "system.plastics": { icon: plasticsIcon, color: "#2dd4bf", tint: "#e4fbf6" },
@@ -713,8 +718,19 @@ window.addEventListener("DOMContentLoaded", () => {
   ["day-before", "day-of"].forEach((kind) => {
     document.querySelector(`#${kind}-enabled`).addEventListener("change", () => updateReminderCard(kind));
     document.querySelectorAll(`input[name="${kind}-time"], #${kind}-custom-time`).forEach((input) => {
-      input.addEventListener("change", () => updateReminderCard(kind));
-      input.addEventListener("input", () => updateReminderCard(kind));
+      const updateTimeSelection = () => {
+        if (input.id === `${kind}-custom-time`) {
+          if (!input.value) {
+            input.value = defaultReminderTimes[kind];
+            document.querySelector(`input[name="${kind}-time"][value="${input.value}"]`).checked = true;
+          } else {
+            document.querySelector(`input[name="${kind}-time"][value="custom"]`).checked = true;
+          }
+        }
+        updateReminderCard(kind);
+      };
+      input.addEventListener("change", updateTimeSelection);
+      input.addEventListener("input", updateTimeSelection);
     });
   });
   document.querySelectorAll(".custom-time-button").forEach((button) => {
