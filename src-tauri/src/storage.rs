@@ -144,14 +144,21 @@ fn migrate_legacy_notification_times(value: &mut Value) {
 mod tests {
     use super::*;
     use crate::domain::{CollectionType, Schedule, ScheduleRule, Weekday};
+    use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
+
+    static NEXT_TEST_STORE: AtomicU64 = AtomicU64::new(0);
 
     fn test_store() -> JsonStateStore {
         let nonce = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap()
             .as_nanos();
-        let directory = std::env::temp_dir().join(format!("trash-talk-state-{nonce}"));
+        let sequence = NEXT_TEST_STORE.fetch_add(1, Ordering::Relaxed);
+        let directory = std::env::temp_dir().join(format!(
+            "trash-talk-state-{}-{nonce}-{sequence}",
+            std::process::id()
+        ));
         JsonStateStore::new(directory.join("state.json"))
     }
 
@@ -201,6 +208,24 @@ mod tests {
                 .count(),
             8
         );
+    }
+
+    #[test]
+    fn initialization_updates_existing_system_labels() {
+        let store = test_store();
+        let mut state = AppState::default();
+        state.collection_types[5].name = "Cans & Spray cans".to_owned();
+        state.collection_types[6].name = "Cardboard, Newspapers & Magazines".to_owned();
+        state.collection_types[7].name = "Small Electronics & Household Appliances".to_owned();
+        store.save(&state).unwrap();
+
+        let state = store.load_or_initialize().unwrap();
+        let names: Vec<&str> = state
+            .collection_types
+            .iter()
+            .map(|collection_type| collection_type.name.as_str())
+            .collect();
+        assert_eq!(&names[5..], &["Cans", "Paper goods", "Appliances"]);
     }
 
     #[test]

@@ -190,21 +190,38 @@ impl AppState {
         false
     }
 
-    /// Adds newly introduced system types without touching custom types or schedules.
-    /// Returns whether the persisted state changed.
+    /// Adds newly introduced system types and refreshes known system labels without
+    /// touching custom types or schedules. Returns whether the persisted state changed.
     pub fn ensure_system_collection_types(&mut self) -> bool {
+        let defaults = default_collection_types();
+        let mut changed = false;
+
+        for collection_type in &mut self.collection_types {
+            if let Some(default) = defaults
+                .iter()
+                .find(|default| default.id == collection_type.id)
+            {
+                if collection_type.name != default.name {
+                    collection_type.name = default.name.clone();
+                    changed = true;
+                }
+            }
+        }
+
         let existing_ids: HashSet<&str> = self
             .collection_types
             .iter()
             .map(|collection_type| collection_type.id.as_str())
             .collect();
-        let missing: Vec<CollectionType> = default_collection_types()
+        let missing: Vec<CollectionType> = defaults
             .into_iter()
             .filter(|collection_type| !existing_ids.contains(collection_type.id.as_str()))
             .collect();
 
-        let changed = !missing.is_empty();
-        self.collection_types.extend(missing);
+        if !missing.is_empty() {
+            changed = true;
+            self.collection_types.extend(missing);
+        }
         changed
     }
 }
@@ -216,14 +233,11 @@ pub fn default_collection_types() -> Vec<CollectionType> {
         ("system.pet-bottles", "PET Bottles"),
         ("system.unburnables", "Unburnables"),
         ("system.glass", "Glass"),
-        ("system.cans-and-spray-cans", "Cans & Spray cans"),
-        (
-            "system.cardboard-newspapers-magazines",
-            "Cardboard, Newspapers & Magazines",
-        ),
+        ("system.cans-and-spray-cans", "Cans"),
+        ("system.cardboard-newspapers-magazines", "Paper goods"),
         (
             "system.small-electronics-household-appliances",
-            "Small Electronics & Household Appliances",
+            "Appliances",
         ),
     ]
     .into_iter()
@@ -335,9 +349,9 @@ mod tests {
                 "PET Bottles",
                 "Unburnables",
                 "Glass",
-                "Cans & Spray cans",
-                "Cardboard, Newspapers & Magazines",
-                "Small Electronics & Household Appliances",
+                "Cans",
+                "Paper goods",
+                "Appliances",
             ]
         );
         assert!(state.collection_types.iter().all(|item| item.is_system));
