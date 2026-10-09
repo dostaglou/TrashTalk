@@ -9,6 +9,19 @@ import plasticsIcon from "./assets/collection-types/recycle.svg";
 import unburnablesIcon from "./assets/collection-types/unburnables.svg";
 import brandMark from "./assets/trashtalk-mark.svg";
 import {
+  collectionLabel,
+  deviceLocale,
+  getLocale,
+  languageName,
+  localizedError,
+  notificationText,
+  recurrenceLabel,
+  setLocale,
+  shortWeekdayLabels,
+  t,
+  translateDocument,
+} from "./i18n.js";
+import {
   Importance,
   Schedule as NotificationSchedule,
   cancel,
@@ -22,13 +35,13 @@ import {
 const { invoke } = window.__TAURI__.core;
 
 const weekdays = [
-  ["sunday", "Sunday"],
-  ["monday", "Monday"],
-  ["tuesday", "Tuesday"],
-  ["wednesday", "Wednesday"],
-  ["thursday", "Thursday"],
-  ["friday", "Friday"],
-  ["saturday", "Saturday"],
+  ["sunday", "days.sunday"],
+  ["monday", "days.monday"],
+  ["tuesday", "days.tuesday"],
+  ["wednesday", "days.wednesday"],
+  ["thursday", "days.thursday"],
+  ["friday", "days.friday"],
+  ["saturday", "days.saturday"],
 ];
 
 const defaultReminderTimes = {
@@ -37,32 +50,29 @@ const defaultReminderTimes = {
 };
 
 const collectionPresentation = {
-  "system.combustible": { icon: combustibleIcon, color: "#fb923c", tint: "#fff1e6" },
-  "system.plastics": { icon: plasticsIcon, color: "#2dd4bf", tint: "#e4fbf6" },
-  "system.pet-bottles": { icon: petBottleIcon, color: "#60a5fa", tint: "#eaf3ff" },
-  "system.unburnables": { icon: unburnablesIcon, color: "#64748b", tint: "#edf1f5" },
-  "system.glass": { icon: glassIcon, color: "#c084fc", tint: "#f4ebff" },
-  "system.cans-and-spray-cans": { icon: canisterIcon, color: "#94a3b8", tint: "#f0f4f7" },
-  "system.cardboard-newspapers-magazines": { icon: cardboardIcon, color: "#fbbf24", tint: "#fff6d9" },
-  "system.small-electronics-household-appliances": { icon: appliancesIcon, color: "#f472b6", tint: "#ffebf5" },
+  combustible: { icon: combustibleIcon, color: "#fb923c", tint: "#fff1e6" },
+  plastics: { icon: plasticsIcon, color: "#2dd4bf", tint: "#e4fbf6" },
+  pet_bottles: { icon: petBottleIcon, color: "#60a5fa", tint: "#eaf3ff" },
+  unburnables: { icon: unburnablesIcon, color: "#64748b", tint: "#edf1f5" },
+  glass: { icon: glassIcon, color: "#c084fc", tint: "#f4ebff" },
+  cans: { icon: canisterIcon, color: "#94a3b8", tint: "#f0f4f7" },
+  paper_goods: { icon: cardboardIcon, color: "#fbbf24", tint: "#fff6d9" },
+  appliances: { icon: appliancesIcon, color: "#f472b6", tint: "#ffebf5" },
   custom: { icon: customIcon, color: "#a78bfa", tint: "#f2edff" },
 };
 
 let editingScheduleId = null;
-const primaryViews = ["home", "calendar", "schedules", "notifications"];
+const primaryViews = ["home", "calendar", "schedules", "notifications", "settings"];
 let activePrimaryView = "home";
 
 const reminderChannel = {
-  id: "trash-talk-reminders-v2",
-  name: "TrashTalk reminders",
-  description: "Upcoming trash collection reminders",
   importance: Importance.Default,
   vibration: true,
   sound: "notification_ping",
 };
 
 function presentationFor(collection) {
-  return collectionPresentation[collection.id] || collectionPresentation.custom;
+  return collectionPresentation[collection.key?.kind] || collectionPresentation.custom;
 }
 
 function collectionIcon(collection, className = "collection-type-icon") {
@@ -91,7 +101,7 @@ function collectionChips(collections, className = "collection-chips") {
     chip.className = "collection-chip";
     chip.style.setProperty("--type-color", presentation.color);
     chip.style.setProperty("--type-tint", presentation.tint);
-    chip.append(collectionIcon(collection), document.createTextNode(collection.name));
+    chip.append(collectionIcon(collection), document.createTextNode(collectionLabel(collection)));
     chips.append(chip);
   });
   return chips;
@@ -103,7 +113,7 @@ function localDateFromIso(isoDate) {
 }
 
 function formatDate(isoDate) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getLocale(), {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -124,15 +134,15 @@ function renderDay(day, prefix) {
 
   if (day.collections.length === 0) {
     title.className = "collection-title collection-title--empty";
-    title.textContent = "No collection scheduled";
-    detail.textContent = prefix === "today" ? "Enjoy a rubbish-free day." : "There is nothing to put out yet.";
+    title.textContent = t("calendar.no_collection_scheduled");
+    detail.textContent = prefix === "today" ? t("home.no_today_detail") : t("home.no_tomorrow_detail");
   } else {
     title.className = "collection-title";
     title.append(
       collectionIconList(day.collections, "collection-icon-list collection-icon-list--title"),
-      document.createTextNode(day.collections.map((collection) => collection.name).join(", ")),
+      document.createTextNode(day.collections.map(collectionLabel).join(", ")),
     );
-    detail.textContent = prefix === "today" ? "Put these out for collection today." : "Get these ready tonight.";
+    detail.textContent = prefix === "today" ? t("home.put_out_today") : t("home.prepare_tonight");
   }
   content.append(title, detail);
 }
@@ -144,8 +154,8 @@ async function loadHomeSummary() {
     renderDay(summary.tomorrow, "tomorrow");
   } catch (error) {
     ["today", "tomorrow"].forEach((prefix) => {
-      setText(`#${prefix}-date`, "Schedule unavailable");
-      setText(`#${prefix}-content`, "Unable to load your local schedule. Please restart TrashTalk.");
+      setText(`#${prefix}-date`, t("home.unavailable"));
+      setText(`#${prefix}-content`, t("status.restart"));
     });
     console.error("Unable to load the Home summary", error);
   }
@@ -163,6 +173,7 @@ function showView(name) {
   if (name === "calendar") loadCalendar();
   if (name === "schedules") loadSchedules();
   if (name === "notifications") loadNotificationSettings();
+  if (name === "settings") loadSettings();
 }
 
 function installPrimaryViewSwipeNavigation() {
@@ -230,14 +241,20 @@ async function reconcileNativeNotifications({ requestPermission: shouldRequestPe
     if (!granted) return { scheduled: 0, permission: "denied" };
 
     await cancelTrashTalkNotifications();
-    await createChannel(reminderChannel);
+    const channel = {
+      ...reminderChannel,
+      id: `trash-talk-reminders-${getLocale()}`,
+      name: t("notifications.channel_name"),
+      description: t("notifications.channel_description"),
+    };
+    await createChannel(channel);
     const plan = await invoke("get_notification_plan");
     plan.forEach((notification) => {
       sendNotification({
         id: notification.id,
-        channelId: reminderChannel.id,
-        title: notification.title,
-        body: notification.body,
+        channelId: channel.id,
+        title: notificationText(notification),
+        body: "",
         icon: "trashtalk_notification",
         iconColor: "#d99a25",
         schedule: NotificationSchedule.at(localDateTimeFromRust(notification.scheduledAt), false, true),
@@ -280,16 +297,16 @@ async function loadSchedules() {
       empty.className = "empty-state";
       const title = document.createElement("p");
       title.className = "empty-state__title";
-      title.textContent = "No schedules yet";
+      title.textContent = t("schedules.no_schedules");
       const detail = document.createElement("p");
-      detail.textContent = "Add your first collection day to get started.";
-      empty.append(title, detail, makeButton("Add a schedule", "text-button", () => openScheduleForm()));
+      detail.textContent = t("schedules.get_started");
+      empty.append(title, detail, makeButton(t("schedules.add_schedule"), "text-button", () => openScheduleForm()));
       list.append(empty);
       return;
     }
     schedules.forEach((schedule) => list.append(renderScheduleCard(schedule)));
   } catch (error) {
-    list.textContent = "Unable to load schedules. Please restart TrashTalk.";
+    list.textContent = t("status.restart");
     console.error("Unable to load schedules", error);
   }
 }
@@ -297,29 +314,29 @@ async function loadSchedules() {
 function renderCustomTypes(collectionTypes) {
   const list = document.querySelector("#custom-type-list");
   list.replaceChildren();
-  const customTypes = collectionTypes.filter((type) => !type.isSystem);
+  const customTypes = collectionTypes.filter((type) => type.key?.kind === "custom");
   if (customTypes.length === 0) {
-    list.textContent = "Custom trash types you create will appear here.";
+    list.textContent = t("schedules.custom_empty");
     return;
   }
   customTypes.forEach((type) => {
     const row = document.createElement("div");
     row.className = "custom-type-row";
-    row.append(collectionIcon(type), document.createTextNode(type.name));
-    row.append(makeButton("Remove", "text-button", () => deleteCustomType(type)));
+    row.append(collectionIcon(type), document.createTextNode(collectionLabel(type)));
+    row.append(makeButton(t("schedules.remove"), "text-button", () => deleteCustomType(type)));
     list.append(row);
   });
 }
 
 async function deleteCustomType(type) {
-  if (!window.confirm(`Remove “${type.name}”? Any schedules using it will also be removed.`)) return;
+  if (!window.confirm(t("schedules.delete_confirm", { types: collectionLabel(type) }))) return;
   try {
     await invoke("delete_custom_collection_type", { id: type.id });
     await reconcileNativeNotifications();
     await loadSchedules();
     await loadHomeSummary();
   } catch (error) {
-    window.alert(String(error));
+    window.alert(localizedError(error));
   }
 }
 
@@ -330,23 +347,23 @@ function renderScheduleCard(schedule) {
   const title = document.createElement("h2");
   title.append(
     collectionIconList(schedule.collectionTypes, "collection-icon-list collection-icon-list--schedule"),
-    document.createTextNode(schedule.collectionTypes.map((collection) => collection.name).join(", ")),
+    document.createTextNode(schedule.collectionTypes.map(collectionLabel).join(", ")),
   );
   const description = document.createElement("p");
-  description.textContent = schedule.recurrenceDescription;
+  description.textContent = recurrenceLabel(schedule.rule);
   info.append(title, description);
   const actions = document.createElement("div");
   actions.className = "schedule-actions";
   actions.append(
-    makeButton("Edit", "text-button", () => openScheduleForm(schedule.id)),
-    makeButton("Delete", "text-button", () => deleteSchedule(schedule)),
+    makeButton(t("schedules.edit"), "text-button", () => openScheduleForm(schedule.id)),
+    makeButton(t("schedules.remove"), "text-button", () => deleteSchedule(schedule)),
   );
   card.append(info, actions);
   return card;
 }
 
 function formatShortDate(isoDate) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getLocale(), {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -354,18 +371,18 @@ function formatShortDate(isoDate) {
 }
 
 function formatMonth(isoDate) {
-  return new Intl.DateTimeFormat(undefined, {
+  return new Intl.DateTimeFormat(getLocale(), {
     month: "long",
     year: "numeric",
   }).format(localDateFromIso(isoDate));
 }
 
 function calendarDayTitle(day, today) {
-  if (day.date === today) return "Today";
+  if (day.date === today) return t("home.today");
   const tomorrow = new Date(localDateFromIso(today));
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowIso = [tomorrow.getFullYear(), String(tomorrow.getMonth() + 1).padStart(2, "0"), String(tomorrow.getDate()).padStart(2, "0")].join("-");
-  return day.date === tomorrowIso ? "Tomorrow" : new Intl.DateTimeFormat(undefined, { weekday: "long" }).format(localDateFromIso(day.date));
+  return day.date === tomorrowIso ? t("home.tomorrow") : new Intl.DateTimeFormat(getLocale(), { weekday: "long" }).format(localDateFromIso(day.date));
 }
 
 async function loadCalendar(period = document.querySelector(".calendar-tab.is-active")?.dataset.calendarPeriod || "next_seven_days") {
@@ -385,7 +402,7 @@ async function loadCalendar(period = document.querySelector(".calendar-tab.is-ac
       renderMonthCalendar(calendar, content);
     }
   } catch (error) {
-    content.textContent = "Unable to load the calendar. Please restart TrashTalk.";
+    content.textContent = t("status.calendar_restart");
     console.error("Unable to load calendar", error);
   }
 }
@@ -394,7 +411,7 @@ function renderWeekCalendar(calendar, content) {
   const header = document.createElement("div");
   header.className = "calendar-range-heading";
   const title = document.createElement("h2");
-  title.textContent = "Next 7 days";
+  title.textContent = t("calendar.next_seven_days");
   const range = document.createElement("p");
   range.textContent = `${formatShortDate(calendar.startDate)} – ${formatShortDate(calendar.endDate)}`;
   header.append(title, range);
@@ -406,7 +423,7 @@ function renderWeekCalendar(calendar, content) {
     if (day.date === calendar.today) card.classList.add("calendar-day-card--today");
     const number = document.createElement("div");
     number.className = "calendar-date-badge";
-    number.innerHTML = `<span>${new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(localDateFromIso(day.date))}</span><strong>${localDateFromIso(day.date).getDate()}</strong>`;
+    number.innerHTML = `<span>${new Intl.DateTimeFormat(getLocale(), { weekday: "short" }).format(localDateFromIso(day.date))}</span><strong>${localDateFromIso(day.date).getDate()}</strong>`;
     const details = document.createElement("div");
     const label = document.createElement("h3");
     label.textContent = calendarDayTitle(day, calendar.today);
@@ -418,7 +435,7 @@ function renderWeekCalendar(calendar, content) {
     if (day.collections.length) {
       collections.append(collectionChips(day.collections, "collection-chips collection-chips--calendar"));
     } else {
-      collections.textContent = "No collection";
+      collections.textContent = t("calendar.no_collection");
     }
     details.append(label, date, collections);
     card.append(number, details);
@@ -432,13 +449,13 @@ function renderMonthCalendar(calendar, content) {
   heading.className = "calendar-month-heading";
   const eyebrow = document.createElement("p");
   eyebrow.className = "eyebrow-text";
-  eyebrow.textContent = calendar.startDate.slice(0, 7) === calendar.today.slice(0, 7) ? "This month" : "Next month";
+  eyebrow.textContent = calendar.startDate.slice(0, 7) === calendar.today.slice(0, 7) ? t("calendar.this_month") : t("calendar.next_month");
   const title = document.createElement("h2");
   title.textContent = formatMonth(calendar.startDate);
   heading.append(eyebrow, title);
   const weekdayLabels = document.createElement("div");
   weekdayLabels.className = "month-weekdays";
-  ["S", "M", "T", "W", "T", "F", "S"].forEach((label) => {
+  shortWeekdayLabels().forEach((label) => {
     const item = document.createElement("span");
     item.textContent = label;
     weekdayLabels.append(item);
@@ -465,7 +482,7 @@ function renderMonthCalendar(calendar, content) {
       details.append(title, collectionChips(day.collections));
     } else {
       const description = document.createElement("p");
-      description.textContent = "No collection scheduled";
+      description.textContent = t("calendar.no_collection_scheduled");
       details.append(title, description);
     }
   };
@@ -483,7 +500,7 @@ function renderMonthCalendar(calendar, content) {
       day.collections.forEach((collection) => icons.append(collectionIcon(collection)));
       button.append(icons);
     }
-    button.setAttribute("aria-label", `${formatDate(day.date)}: ${day.collections.length ? day.collections.map((item) => item.name).join(", ") : "No collection"}`);
+    button.setAttribute("aria-label", `${formatDate(day.date)}: ${day.collections.length ? day.collections.map(collectionLabel).join(", ") : t("calendar.no_collection")}`);
     button.addEventListener("click", () => selectDay(day, button));
     grid.append(button);
     if (day.date === calendar.today || (!selectedButton && day.date === calendar.startDate)) {
@@ -504,7 +521,7 @@ function updateReminderCard(kind) {
   const choices = document.querySelector(`#${kind}-times`);
   const customInput = document.querySelector(`#${kind}-custom-time`);
   const customButton = document.querySelector(`[data-time-input="${kind}-custom-time"]`);
-  customButton.textContent = customInput.value ? `~${customInput.value}` : "Select";
+  customButton.textContent = customInput.value ? `~${customInput.value}` : t("notifications.select");
   card.classList.toggle("notification-card--disabled", !enabled);
   choices.classList.toggle("is-hidden", !enabled);
   choices.querySelectorAll("input").forEach((input) => { input.disabled = !enabled; });
@@ -533,7 +550,7 @@ async function loadNotificationSettings() {
       updateReminderCard(kind);
     });
   } catch (error) {
-    setNotificationStatus("Unable to load notification settings. Please restart TrashTalk.", "error");
+    setNotificationStatus(t("status.settings_restart"), "error");
     console.error("Unable to load notification settings", error);
   }
 }
@@ -558,28 +575,28 @@ async function saveNotificationSettings(event) {
       requestPermission: settings.dayBefore.enabled || settings.dayOf.enabled,
     });
     if (result.permission === "denied") {
-      setNotificationStatus("Settings saved. Android notification permission was not granted, so reminders are not scheduled.", "error");
+      setNotificationStatus(t("notifications.permission_denied"), "error");
     } else if (result.permission === "unavailable") {
-      setNotificationStatus("Settings saved, but Android reminders could not be scheduled on this device.", "error");
+      setNotificationStatus(t("notifications.unavailable"), "error");
     } else if (result.permission === "not-needed") {
-      setNotificationStatus("Settings saved. Reminders are off.", "success");
+      setNotificationStatus(t("notifications.saved_off"), "success");
     } else {
-      setNotificationStatus(`Settings saved.`, "success");
+      setNotificationStatus(t("notifications.saved"), "success");
     }
   } catch (error) {
-    setNotificationStatus(String(error), "error");
+    setNotificationStatus(localizedError(error), "error");
   }
 }
 
 async function deleteSchedule(schedule) {
-  const types = schedule.collectionTypes.map((item) => item.name).join(", ");
-  if (!window.confirm(`Delete the ${types} schedule?`)) return;
+  const types = schedule.collectionTypes.map(collectionLabel).join(", ");
+  if (!window.confirm(t("schedules.delete_confirm", { types }))) return;
   try {
     await invoke("delete_schedule", { id: schedule.id });
     await reconcileNativeNotifications();
     await loadSchedules();
   } catch (error) {
-    window.alert(error);
+    window.alert(localizedError(error));
   }
 }
 
@@ -619,6 +636,36 @@ function setRecurrenceMode(mode) {
   document.querySelector("#monthly-fields").classList.toggle("is-hidden", mode !== "monthly");
 }
 
+async function loadSettings() {
+  const selected = await invoke("get_locale");
+  const effective = selected === "japanese" ? "ja" : selected === "english" ? "en" : deviceLocale();
+  document.querySelector(`input[name="language"][value="${effective}"]`).checked = true;
+  setText("#device-language", t("settings.device_language_hint", { language: languageName(effective) }));
+}
+
+async function saveLocale(event) {
+  const locale = event.target.value;
+  try {
+    await invoke("save_locale", { locale: locale === "ja" ? "japanese" : "english" });
+    setLocale(locale);
+    translateDocument();
+    await loadSettings();
+    if (activePrimaryView === "home") await loadHomeSummary();
+    if (activePrimaryView === "calendar") await loadCalendar();
+    if (activePrimaryView === "schedules") {
+      if (!document.querySelector("#schedule-form-view").classList.contains("is-hidden")) {
+        await openScheduleForm(editingScheduleId);
+      } else {
+        await loadSchedules();
+      }
+    }
+    if (activePrimaryView === "notifications") await loadNotificationSettings();
+    await reconcileNativeNotifications();
+  } catch (error) {
+    window.alert(localizedError(error));
+  }
+}
+
 async function openScheduleForm(id = null) {
   editingScheduleId = id;
   setFormError();
@@ -631,26 +678,26 @@ async function openScheduleForm(id = null) {
   collectionOptions.replaceChildren(...collectionTypes.map((type) => inputLabel({
     name: "collection-type",
     value: type.id,
-    label: type.name,
+    label: collectionLabel(type),
     checked: selectedTypes.has(type.id),
     collection: type,
   })));
   const customType = collectionTypes.find((type) =>
-    !type.isSystem && selectedTypes.has(type.id));
-  document.querySelector("#custom-collection-type").value = customType?.name || "";
+    type.key?.kind === "custom" && selectedTypes.has(type.id));
+  document.querySelector("#custom-collection-type").value = customType ? collectionLabel(customType) : "";
 
   const weeklyValues = new Set(schedule?.rule?.kind === "weekly" ? schedule.rule.weekdays : []);
   const weekdayOptions = document.querySelector("#weekday-options");
   weekdayOptions.replaceChildren(...weekdays.map(([value, label]) => inputLabel({
     name: "weekday",
     value,
-    label,
+    label: t(label),
     checked: weeklyValues.has(value),
   })));
 
   const monthlyWeekday = document.querySelector("#monthly-weekday");
-  monthlyWeekday.replaceChildren(new Option("Choose a day", ""));
-  weekdays.forEach(([value, label]) => monthlyWeekday.add(new Option(label, value)));
+  monthlyWeekday.replaceChildren(new Option(t("form.choose_day"), ""));
+  weekdays.forEach(([value, label]) => monthlyWeekday.add(new Option(t(label), value)));
   const monthlyRule = schedule?.rule?.kind === "monthly_nth_weekday" ? schedule.rule : null;
   monthlyWeekday.value = monthlyRule?.weekday || "";
   const selectedOrdinals = new Set(monthlyRule?.ordinals?.map(String) || []);
@@ -658,16 +705,16 @@ async function openScheduleForm(id = null) {
   ordinalOptions.replaceChildren(...[1, 2, 3, 4, 5].map((ordinal) => inputLabel({
     name: "ordinal",
     value: String(ordinal),
-    label: `${ordinal}${ordinal === 1 ? "st" : ordinal === 2 ? "nd" : ordinal === 3 ? "rd" : "th"}`,
+    label: t(`recurrence.ordinal_${ordinal}`),
     checked: selectedOrdinals.has(String(ordinal)),
   })));
 
   const isMonthly = Boolean(monthlyRule);
   document.querySelector(`input[name="recurrence"][value="${isMonthly ? "monthly" : "weekly"}"]`).checked = true;
   setRecurrenceMode(isMonthly ? "monthly" : "weekly");
-  setText("#schedule-form-mode", id ? "Update routine" : "New routine");
-  setText("#schedule-form-heading", id ? "Edit schedule" : "Add a schedule");
-  setText("#save-schedule", id ? "Save changes" : "Add schedule");
+  setText("#schedule-form-mode", t(id ? "form.update_routine" : "form.new_routine"));
+  setText("#schedule-form-heading", t(id ? "form.edit_schedule" : "form.add_schedule"));
+  setText("#save-schedule", t(id ? "form.save_changes" : "form.save_schedule"));
   showView("schedule-form");
 }
 
@@ -699,11 +746,18 @@ async function saveSchedule(event) {
     await reconcileNativeNotifications();
     showView("schedules");
   } catch (error) {
-    setFormError(String(error));
+    setFormError(localizedError(error));
   }
 }
 
-window.addEventListener("DOMContentLoaded", () => {
+async function initializeLocale() {
+  const selected = await invoke("get_locale");
+  setLocale(selected === "japanese" ? "ja" : selected === "english" ? "en" : deviceLocale());
+  translateDocument();
+}
+
+window.addEventListener("DOMContentLoaded", async () => {
+  await initializeLocale();
   document.querySelector("#brand-mark").src = brandMark;
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.addEventListener("click", () => showView(button.dataset.view));
@@ -715,6 +769,7 @@ window.addEventListener("DOMContentLoaded", () => {
   document.querySelector("#add-schedule").addEventListener("click", () => openScheduleForm());
   document.querySelector("#schedule-form").addEventListener("submit", saveSchedule);
   document.querySelector("#notification-settings-form").addEventListener("submit", saveNotificationSettings);
+  document.querySelectorAll('input[name="language"]').forEach((input) => input.addEventListener("change", saveLocale));
   ["day-before", "day-of"].forEach((kind) => {
     document.querySelector(`#${kind}-enabled`).addEventListener("change", () => updateReminderCard(kind));
     document.querySelectorAll(`input[name="${kind}-time"], #${kind}-custom-time`).forEach((input) => {

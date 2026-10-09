@@ -12,55 +12,56 @@
   <body>
     <main class="app-shell">
       <header class="app-header">
-        <div class="brand" aria-label="TrashTalk home">
+        <div class="brand" aria-label="TrashTalk home" data-i18n-aria-label="nav.brand">
           <img class="brand-mark" id="brand-mark" alt="" aria-hidden="true" />
           <span>TrashTalk</span>
         </div>
-        <nav class="top-nav" aria-label="Main navigation">
-          <button class="nav-link nav-link--active" type="button" data-view="home">Home</button>
-          <button class="nav-link" type="button" data-view="calendar">Calendar</button>
-          <button class="nav-link" type="button" data-view="schedules">Schedules</button>
-          <button class="nav-link" type="button" data-view="notifications">Alerts</button>
+        <nav class="top-nav" aria-label="Main navigation" data-i18n-aria-label="nav.main">
+          <button class="nav-link nav-link--active" type="button" data-view="home" data-i18n="nav.home">Home</button>
+          <button class="nav-link" type="button" data-view="calendar" data-i18n="nav.calendar">Calendar</button>
+          <button class="nav-link" type="button" data-view="schedules" data-i18n="nav.schedules">Schedules</button>
+          <button class="nav-link" type="button" data-view="notifications" data-i18n="nav.alerts">Alerts</button>
+          <button class="nav-link" type="button" data-view="settings" data-i18n="nav.settings">Settings</button>
         </nav>
       </header>
 
       <section id="home-view" class="view" aria-labelledby="date-label">
         <div class="date-heading">
-          <p id="date-label">Your collection schedule</p>
+          <p id="date-label" data-i18n="home.schedule">Your collection schedule</p>
         </div>
 
         <section class="summary-card summary-card--today" aria-labelledby="today-label">
           <div class="card-topline">
-            <span class="eyebrow eyebrow--today" id="today-label">Today</span>
+            <span class="eyebrow eyebrow--today" id="today-label" data-i18n="home.today">Today</span>
             <span class="card-symbol card-symbol--today" aria-hidden="true">✓</span>
           </div>
-          <p class="card-date" id="today-date">Loading date…</p>
+          <p class="card-date" id="today-date" data-i18n="home.loading_date">Loading date…</p>
           <div class="collection-content" id="today-content" aria-live="polite">
-            <p class="collection-title">Checking your schedule…</p>
+            <p class="collection-title" data-i18n="home.loading">Checking your schedule…</p>
           </div>
         </section>
 
         <section class="summary-card summary-card--tomorrow" aria-labelledby="tomorrow-label">
           <div class="card-topline">
-            <span class="eyebrow eyebrow--tomorrow" id="tomorrow-label">Tomorrow</span>
+            <span class="eyebrow eyebrow--tomorrow" id="tomorrow-label" data-i18n="home.tomorrow">Tomorrow</span>
             <span class="card-symbol card-symbol--tomorrow" aria-hidden="true">→</span>
           </div>
-          <p class="card-date" id="tomorrow-date">Loading date…</p>
+          <p class="card-date" id="tomorrow-date" data-i18n="home.loading_date">Loading date…</p>
           <div class="collection-content" id="tomorrow-content" aria-live="polite">
-            <p class="collection-title">Checking your schedule…</p>
+            <p class="collection-title" data-i18n="home.loading">Checking your schedule…</p>
           </div>
         </section>
       </section>
 
       <section id="calendar-view" class="view is-hidden" aria-labelledby="calendar-heading">
         <div class="calendar-heading">
-          <p class="eyebrow-text">Plan ahead</p>
-          <h1 id="calendar-heading">Calendar</h1>
+          <p class="eyebrow-text" data-i18n="calendar.eyebrow">Plan ahead</p>
+          <h1 id="calendar-heading" data-i18n="nav.calendar">Calendar</h1>
         </div>
-        <div class="calendar-tabs" role="tablist" aria-label="Calendar view">
-          <button type="button" class="calendar-tab is-active" data-calendar-period="next_seven_days" role="tab" aria-selected="true">Next 7 days</button>
-          <button type="button" class="calendar-tab" data-calendar-period="this_month" role="tab" aria-selected="false">This month</button>
-          <button type="button" class="calendar-tab" data-calendar-period="next_month" role="tab" aria-selected="false">Next month</button>
+        <div class="calendar-tabs" role="tablist" aria-label="Calendar view" data-i18n-aria-label="calendar.view">
+          <button type="button" class="calendar-tab is-active" data-calendar-period="next_seven_days" role="tab" aria-selected="true" data-i18n="calendar.next_seven_days">Next 7 days</button>
+          <button type="button" class="calendar-tab" data-calendar-period="this_month" role="tab" aria-selected="false" data-i18n="calendar.this_month">This month</button>
+          <button type="button" class="calendar-tab" data-calendar-period="next_month" role="tab" aria-selected="false" data-i18n="calendar.next_month">Next month</button>
         </div>
         <div id="calendar-content" aria-live="polite"></div>
       </section>
@@ -68,17 +69,17 @@
       <section id="schedules-view" class="view is-hidden" aria-labelledby="schedules-heading">
         <div class="page-heading">
           <div>
-            <p class="eyebrow-text">Your routines</p>
-            <h1 id="schedules-heading">Schedules</h1>
+              <p class="eyebrow-text" data-i18n="schedules.eyebrow">Your routines</p>
+              <h1 id="schedules-heading" data-i18n="nav.schedules">Schedules</h1>
           </div>
-          <button class="primary-button primary-button--compact" type="button" id="add-schedule">Add</button>
+          <button class="primary-button primary-button--compact" type="button" id="add-schedule" data-i18n="schedules.add">Add</button>
         </div>
         <div id="schedule-list" class="schedule-list" aria-live="polite"></div>
         <section class="custom-types-section" aria-labelledby="custom-types-heading">
           <div class="section-heading">
             <div>
-              <p class="eyebrow-text">Personalise</p>
-              <h2 id="custom-types-heading">Custom trash types</h2>
+              <p class="eyebrow-text" data-i18n="schedules.personalise">Personalise</p>
+              <h2 id="custom-types-heading" data-i18n="schedules.custom_types">Custom trash types</h2>
             </div>
           </div>
           <div id="custom-type-list" class="custom-type-list" aria-live="polite"></div>
@@ -87,92 +88,108 @@
 
       <section id="schedule-form-view" class="view is-hidden" aria-labelledby="schedule-form-heading">
         <div class="form-page-heading">
-          <p class="eyebrow-text" id="schedule-form-mode">New routine</p>
-          <h1 id="schedule-form-heading">Add a schedule</h1>
-          <p class="page-intro">Choose what goes out and which days it is collected.</p>
+          <p class="eyebrow-text" id="schedule-form-mode" data-i18n="form.new_routine">New routine</p>
+          <h1 id="schedule-form-heading" data-i18n="form.add_schedule">Add a schedule</h1>
+          <p class="page-intro" data-i18n="form.choose_intro">Choose what goes out and which days it is collected.</p>
         </div>
         <form id="schedule-form" class="form-card" novalidate>
           <div id="form-error" class="form-error is-hidden" role="alert"></div>
           <fieldset class="form-section">
-            <legend>Collection types</legend>
-            <p class="field-hint">Choose everything collected on this schedule.</p>
+            <legend data-i18n="form.collection_types">Collection types</legend>
+            <p class="field-hint" data-i18n="form.collection_hint">Choose everything collected on this schedule.</p>
             <div id="collection-type-options" class="selection-grid"></div>
-            <label class="field-label field-label--spaced" for="custom-collection-type">Custom trash type</label>
-            <input id="custom-collection-type" class="text-field" type="text" minlength="1" maxlength="100" placeholder="e.g. Batteries" />
-            <p class="field-hint">Optional. Enter 1–100 characters.</p>
+            <label class="field-label field-label--spaced" for="custom-collection-type" data-i18n="form.custom_type">Custom trash type</label>
+            <input id="custom-collection-type" class="text-field" type="text" minlength="1" maxlength="100" placeholder="e.g. Batteries" data-i18n-placeholder="form.custom_placeholder" />
+            <p class="field-hint" data-i18n="form.optional_characters">Optional. Enter 1–100 characters.</p>
           </fieldset>
           <fieldset class="form-section">
-            <legend>Repeat</legend>
+            <legend data-i18n="form.repeat">Repeat</legend>
             <div class="mode-toggle">
-              <label><input type="radio" name="recurrence" value="weekly" checked /> Every week</label>
-              <label><input type="radio" name="recurrence" value="monthly" /> Monthly</label>
+              <label><input type="radio" name="recurrence" value="weekly" checked /> <span data-i18n="form.every_week">Every week</span></label>
+              <label><input type="radio" name="recurrence" value="monthly" /> <span data-i18n="form.monthly">Monthly</span></label>
             </div>
           </fieldset>
           <fieldset class="form-section" id="weekly-fields">
-            <legend>Collection days</legend>
+            <legend data-i18n="form.collection_days">Collection days</legend>
             <div id="weekday-options" class="selection-grid selection-grid--days"></div>
           </fieldset>
           <fieldset class="form-section is-hidden" id="monthly-fields">
-            <legend>Monthly collection</legend>
-            <label class="field-label" for="monthly-weekday">Day of the week</label>
+            <legend data-i18n="form.monthly_collection">Monthly collection</legend>
+            <label class="field-label" for="monthly-weekday" data-i18n="form.day_of_week">Day of the week</label>
             <select id="monthly-weekday" class="select-field">
-              <option value="">Choose a day</option>
+              <option value="" data-i18n="form.choose_day">Choose a day</option>
             </select>
-            <p class="field-label field-label--spaced">Which occurrence?</p>
+            <p class="field-label field-label--spaced" data-i18n="form.which_occurrence">Which occurrence?</p>
             <div id="ordinal-options" class="selection-grid selection-grid--ordinals"></div>
           </fieldset>
-          <button class="primary-button" type="submit" id="save-schedule">Add schedule</button>
+          <button class="primary-button" type="submit" id="save-schedule" data-i18n="form.save_schedule">Add schedule</button>
         </form>
       </section>
 
       <section id="notifications-view" class="view is-hidden" aria-labelledby="notifications-heading">
         <div class="form-page-heading">
-          <p class="eyebrow-text">Your reminders</p>
-          <h1 id="notifications-heading">Notifications</h1>
-          <p class="page-intro">Choose broad delivery times for local Android reminders. Delivery may be a little later to preserve battery life.</p>
+          <p class="eyebrow-text" data-i18n="notifications.eyebrow">Your reminders</p>
+          <h1 id="notifications-heading" data-i18n="notifications.title">Notifications</h1>
+          <p class="page-intro" data-i18n="notifications.intro">Choose broad delivery times for local Android reminders. Delivery may be a little later to preserve battery life.</p>
         </div>
         <form id="notification-settings-form" class="notification-settings" novalidate>
           <section class="notification-card" id="day-of-reminder">
             <div class="notification-card__heading">
               <div>
-                <h2>Day of</h2>
-                <p>A reminder on collection day.</p>
+                <h2 data-i18n="notifications.day_of">Day of</h2>
+                <p data-i18n="notifications.day_of_description">A reminder on collection day.</p>
               </div>
               <label class="switch-label" for="day-of-enabled">
-                <span class="sr-only">Enable day-of reminders</span>
+                <span class="sr-only" data-i18n="notifications.enable_day_of">Enable day-of reminders</span>
                 <input id="day-of-enabled" type="checkbox" />
                 <span class="switch" aria-hidden="true"></span>
               </label>
             </div>
             <div class="time-options" id="day-of-times">
-              <label class="time-option"><input type="radio" name="day-of-time" value="06:00" checked /><span><strong>Morning</strong><small>~06:00</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="08:00" /><span><strong>Mid morning</strong><small>~08:00</small></span></label>
-              <label class="time-option"><input type="radio" name="day-of-time" value="custom" /><span><strong>Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-of-custom-time">Select</button><input class="custom-time-input" type="time" id="day-of-custom-time" min="00:00" max="23:59" step="60" value="06:00" aria-label="Choose custom day-of reminder time" /></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="06:00" checked /><span><strong data-i18n="notifications.morning">Morning</strong><small>~06:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="08:00" /><span><strong data-i18n="notifications.mid_morning">Mid morning</strong><small>~08:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-of-time" value="custom" /><span><strong data-i18n="notifications.custom">Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-of-custom-time" data-i18n="notifications.select">Select</button><input class="custom-time-input" type="time" id="day-of-custom-time" min="00:00" max="23:59" step="60" value="06:00" aria-label="Choose custom day-of reminder time" data-i18n-aria-label="notifications.choose_custom" /></label>
             </div>
           </section>
 
           <section class="notification-card" id="day-before-reminder">
             <div class="notification-card__heading">
               <div>
-                <h2>Day before</h2>
-                <p>Time to get tomorrow's collection ready.</p>
+                <h2 data-i18n="notifications.day_before">Day before</h2>
+                <p data-i18n="notifications.day_before_description">Time to get tomorrow's collection ready.</p>
               </div>
               <label class="switch-label" for="day-before-enabled">
-                <span class="sr-only">Enable day-before reminders</span>
+                <span class="sr-only" data-i18n="notifications.enable_day_before">Enable day-before reminders</span>
                 <input id="day-before-enabled" type="checkbox" />
                 <span class="switch" aria-hidden="true"></span>
               </label>
             </div>
             <div class="time-options" id="day-before-times">
-              <label class="time-option"><input type="radio" name="day-before-time" value="18:00" checked /><span><strong>Evening</strong><small>~18:00</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="21:00" /><span><strong>Late evening</strong><small>~21:00</small></span></label>
-              <label class="time-option"><input type="radio" name="day-before-time" value="custom" /><span><strong>Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-before-custom-time">Select</button><input class="custom-time-input" type="time" id="day-before-custom-time" min="00:00" max="23:59" step="60" value="18:00" aria-label="Choose custom day-before reminder time" /></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="18:00" checked /><span><strong data-i18n="notifications.evening">Evening</strong><small>~18:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="21:00" /><span><strong data-i18n="notifications.late_evening">Late evening</strong><small>~21:00</small></span></label>
+              <label class="time-option"><input type="radio" name="day-before-time" value="custom" /><span><strong data-i18n="notifications.custom">Custom</strong></span><button class="custom-time-button" type="button" data-time-input="day-before-custom-time" data-i18n="notifications.select">Select</button><input class="custom-time-input" type="time" id="day-before-custom-time" min="00:00" max="23:59" step="60" value="18:00" aria-label="Choose custom day-before reminder time" data-i18n-aria-label="notifications.choose_custom" /></label>
             </div>
           </section>
 
           <p id="notification-status" class="form-status is-hidden" role="status"></p>
-          <button class="primary-button" type="submit">Save reminder settings</button>
+          <button class="primary-button" type="submit" data-i18n="notifications.save">Save reminder settings</button>
         </form>
+      </section>
+
+      <section id="settings-view" class="view is-hidden" aria-labelledby="settings-heading">
+        <div class="form-page-heading">
+          <p class="eyebrow-text" data-i18n="settings.eyebrow">Preferences</p>
+          <h1 id="settings-heading" data-i18n="settings.title">Settings</h1>
+        </div>
+        <section class="form-card settings-card">
+          <h2 data-i18n="settings.language">Language</h2>
+          <p class="field-hint" data-i18n="settings.language_hint">Choose the language used throughout TrashTalk.</p>
+          <div class="mode-toggle language-options">
+            <label><input type="radio" name="language" value="en" /><span data-i18n="settings.english">English</span></label>
+            <label><input type="radio" name="language" value="ja" /><span data-i18n="settings.japanese">日本語</span></label>
+          </div>
+          <p class="field-hint" id="device-language"></p>
+        </section>
       </section>
     </main>
   </body>

@@ -55,7 +55,7 @@ body {
 .top-nav {
   display: grid;
   width: 100%;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 4px;
   /* Let the header surface show through: navigation is part of the same bar. */
   background: transparent;
@@ -187,6 +187,10 @@ body {
 .form-status--success { background: #e4f5e9; color: #28623b; }
 .form-status--error { background: #fff0e9; color: #9a4217; }
 .notification-settings .primary-button { margin-top: 18px; }
+
+.settings-card h2 { margin: 0; color: #45291c; font-size: 1.1rem; }
+.settings-card .field-hint { margin-top: 7px; }
+.language-options { margin-top: 18px; }
 
 .date-heading {
   min-height: 44px;

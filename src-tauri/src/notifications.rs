@@ -1,6 +1,6 @@
 //! Pure notification planning. This module deliberately has no Tauri or Android dependency.
 
-use crate::domain::{collections_for_date, AppState, NotificationSettings};
+use crate::domain::{collections_for_date, AppState, CollectionType, NotificationSettings};
 use chrono::{Days, NaiveDate, NaiveDateTime};
 use serde::Serialize;
 
@@ -21,8 +21,7 @@ pub struct PlannedNotification {
     pub collection_date: NaiveDate,
     pub reminder_type: ReminderType,
     pub scheduled_at: NaiveDateTime,
-    pub title: String,
-    pub body: String,
+    pub collections: Vec<CollectionType>,
 }
 
 /// Builds all future local reminders in the supplied horizon. `now` is an explicit input so
@@ -40,35 +39,6 @@ pub fn plan_notifications(
             break;
         };
         let collections = collections_for_date(state, collection_date);
-        let (day_of_title, day_before_title) = if collections.is_empty() {
-            (
-                "Nothing to put out today".to_owned(),
-                "Nothing to put out tomorrow".to_owned(),
-            )
-        } else {
-            (
-                format!(
-                    "Today's trash: {}",
-                    join_collection_names(
-                        collections
-                            .iter()
-                            .map(|collection| collection.name.as_str())
-                            .collect(),
-                    )
-                ),
-                format!(
-                    "Tomorrow's trash: {}",
-                    join_collection_names(
-                        collections
-                            .iter()
-                            .map(|collection| collection.name.as_str())
-                            .collect(),
-                    )
-                ),
-            )
-        };
-        let body = String::new();
-
         if settings.day_before.enabled {
             let Some(reminder_date) = collection_date.pred_opt() else {
                 continue;
@@ -78,8 +48,7 @@ pub fn plan_notifications(
                 collection_date,
                 ReminderType::DayBefore,
                 reminder_date.and_time(settings.day_before.time.as_naive_time()),
-                &day_before_title,
-                &body,
+                &collections,
                 now,
             );
         }
@@ -89,8 +58,7 @@ pub fn plan_notifications(
                 collection_date,
                 ReminderType::DayOf,
                 collection_date.and_time(settings.day_of.time.as_naive_time()),
-                &day_of_title,
-                &body,
+                &collections,
                 now,
             );
         }
@@ -105,8 +73,7 @@ fn push_if_future(
     collection_date: NaiveDate,
     reminder_type: ReminderType,
     scheduled_at: NaiveDateTime,
-    title: &str,
-    body: &str,
+    collections: &[CollectionType],
     now: NaiveDateTime,
 ) {
     if scheduled_at <= now {
@@ -117,8 +84,7 @@ fn push_if_future(
         collection_date,
         reminder_type,
         scheduled_at,
-        title: title.to_owned(),
-        body: body.to_owned(),
+        collections: collections.to_owned(),
     });
 }
 
@@ -134,19 +100,6 @@ fn stable_notification_id(
         (value ^ u32::from(byte)).wrapping_mul(16_777_619)
     });
     -((hash & 0x7fff_ffff).max(1) as i32)
-}
-
-fn join_collection_names(names: Vec<&str>) -> String {
-    match names.as_slice() {
-        [] => String::new(),
-        [name] => (*name).to_owned(),
-        [first, second] => format!("{first} and {second}"),
-        _ => format!(
-            "{}, and {}",
-            names[..names.len() - 1].join(", "),
-            names.last().unwrap()
-        ),
-    }
 }
 
 #[cfg(test)]
@@ -206,7 +159,7 @@ mod tests {
     }
 
     #[test]
-    fn collections_are_grouped_and_empty_days_get_a_fallback_message() {
+    fn collections_are_grouped_and_empty_days_remain_language_independent() {
         let state = weekly_state(
             vec![Weekday::Monday],
             vec!["system.combustible", "system.plastics"],
@@ -217,15 +170,16 @@ mod tests {
         assert_eq!(plan.len(), 8);
         let collection = plan
             .iter()
-            .find(|item| item.title == "Today's trash: Combustible and Plastics")
+            .find(|item| !item.collections.is_empty())
             .unwrap();
-        assert!(collection.body.is_empty());
+        assert_eq!(collection.collections.len(), 2);
+        assert_eq!(collection.collections[0].id, "system.combustible");
+        assert_eq!(collection.collections[1].id, "system.plastics");
         let empty = plan
             .iter()
-            .find(|item| item.title == "Nothing to put out today")
+            .find(|item| item.collections.is_empty())
             .unwrap();
-        assert_eq!(empty.title, "Nothing to put out today");
-        assert_eq!(empty.body, "");
+        assert!(empty.collections.is_empty());
     }
 
     #[test]
@@ -270,21 +224,19 @@ mod tests {
         assert_ne!(
             initial
                 .iter()
-                .find(|item| item.title == "Today's trash: Combustible")
+                .find(|item| !item.collections.is_empty())
                 .unwrap()
                 .collection_date,
             edited
                 .iter()
-                .find(|item| item.title == "Today's trash: Combustible")
+                .find(|item| !item.collections.is_empty())
                 .unwrap()
                 .collection_date
         );
         state.schedules.clear();
         let empty_plan = plan_notifications(&state, &settings, now, 3);
         assert_eq!(empty_plan.len(), 2);
-        assert!(empty_plan
-            .iter()
-            .all(|item| item.title == "Nothing to put out today" && item.body.is_empty()));
+        assert!(empty_plan.iter().all(|item| item.collections.is_empty()));
         settings.day_of.enabled = false;
         assert!(plan_notifications(
             &weekly_state(vec![Weekday::Monday], vec!["system.combustible"]),

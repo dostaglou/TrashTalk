@@ -1,6 +1,6 @@
 use crate::domain::{
-    collections_for_date, recurrence_description, AppState, CollectionType, NotificationSettings,
-    Schedule, ScheduleInput, ScheduleRule,
+    collections_for_date, AppState, CollectionType, Locale, NotificationSettings, Schedule,
+    ScheduleInput, ScheduleRule,
 };
 use crate::notifications::{plan_notifications, PlannedNotification, NOTIFICATION_HORIZON_DAYS};
 use crate::storage::{StateRepository, StoreError};
@@ -9,6 +9,25 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::sync::Mutex;
 use uuid::Uuid;
+
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(tag = "code", rename_all = "snake_case")]
+pub enum AppError {
+    CalendarEndBeforeStart,
+    CalendarRangeTooLarge,
+    CalendarDateInvalid { boundary: String },
+    CollectionTypeNameInvalid,
+    CollectionTypeNotFound,
+    SystemCollectionTypeProtected,
+    ScheduleNotFound,
+    NoCollectionTypes,
+    CollectionTypeDoesNotExist { id: String },
+    NoWeeklyWeekdays,
+    NoMonthlyOccurrences,
+    MonthlyOrdinalOutOfRange { ordinal: u8 },
+    StateUnavailable,
+    UnableToSaveState,
+}
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -53,7 +72,7 @@ pub struct CalendarPeriod {
 pub struct ScheduleSummary {
     pub id: String,
     pub collection_types: Vec<CollectionType>,
-    pub recurrence_description: String,
+    pub rule: ScheduleRule,
 }
 
 pub fn home_summary_for(state: &AppState, today: NaiveDate) -> HomeSummary {
@@ -74,9 +93,9 @@ pub fn calendar_days_for(
     state: &AppState,
     start_date: NaiveDate,
     end_date: NaiveDate,
-) -> Result<Vec<CalendarDay>, String> {
+) -> Result<Vec<CalendarDay>, AppError> {
     if end_date < start_date {
-        return Err("The calendar end date must be on or after the start date.".to_owned());
+        return Err(AppError::CalendarEndBeforeStart);
     }
 
     let mut date = start_date;
@@ -89,9 +108,7 @@ pub fn calendar_days_for(
         if date == end_date {
             break;
         }
-        date = date
-            .succ_opt()
-            .ok_or_else(|| "The requested calendar range is too large.".to_owned())?;
+        date = date.succ_opt().ok_or(AppError::CalendarRangeTooLarge)?;
     }
     Ok(days)
 }
@@ -100,13 +117,13 @@ pub fn calendar_period_for(
     state: &AppState,
     today: NaiveDate,
     period: CalendarPeriodKind,
-) -> Result<CalendarPeriod, String> {
+) -> Result<CalendarPeriod, AppError> {
     let (start_date, end_date) = match period {
         CalendarPeriodKind::NextSevenDays => (
             today,
             today
                 .checked_add_days(chrono::Days::new(6))
-                .ok_or_else(|| "The requested calendar range is too large.".to_owned())?,
+                .ok_or(AppError::CalendarRangeTooLarge)?,
         ),
         CalendarPeriodKind::ThisMonth => month_bounds(today.year(), today.month())?,
         CalendarPeriodKind::NextMonth => {
@@ -126,9 +143,9 @@ pub fn calendar_period_for(
     })
 }
 
-fn month_bounds(year: i32, month: u32) -> Result<(NaiveDate, NaiveDate), String> {
-    let start_date = NaiveDate::from_ymd_opt(year, month, 1)
-        .ok_or_else(|| "The requested calendar month is invalid.".to_owned())?;
+fn month_bounds(year: i32, month: u32) -> Result<(NaiveDate, NaiveDate), AppError> {
+    let start_date =
+        NaiveDate::from_ymd_opt(year, month, 1).ok_or(AppError::CalendarRangeTooLarge)?;
     let (next_year, next_month) = if month == 12 {
         (year + 1, 1)
     } else {
@@ -136,7 +153,7 @@ fn month_bounds(year: i32, month: u32) -> Result<(NaiveDate, NaiveDate), String>
     };
     let end_date = NaiveDate::from_ymd_opt(next_year, next_month, 1)
         .and_then(|date| date.pred_opt())
-        .ok_or_else(|| "The requested calendar month is invalid.".to_owned())?;
+        .ok_or(AppError::CalendarRangeTooLarge)?;
     Ok((start_date, end_date))
 }
 
@@ -155,11 +172,11 @@ impl<R: StateRepository> AppService<R> {
         })
     }
 
-    pub fn home_summary(&self) -> Result<HomeSummary, String> {
+    pub fn home_summary(&self) -> Result<HomeSummary, AppError> {
         self.home_summary_for_date(Local::now().date_naive())
     }
 
-    pub fn home_summary_for_date(&self, today: NaiveDate) -> Result<HomeSummary, String> {
+    pub fn home_summary_for_date(&self, today: NaiveDate) -> Result<HomeSummary, AppError> {
         let state = self.lock_state()?;
         Ok(home_summary_for(&state, today))
     }
@@ -168,83 +185,90 @@ impl<R: StateRepository> AppService<R> {
         &self,
         start_date: &str,
         end_date: &str,
-    ) -> Result<Vec<CalendarDay>, String> {
+    ) -> Result<Vec<CalendarDay>, AppError> {
         let start_date = parse_calendar_date(start_date, "start")?;
         let end_date = parse_calendar_date(end_date, "end")?;
         let state = self.lock_state()?;
         calendar_days_for(&state, start_date, end_date)
     }
 
-    pub fn calendar_period(&self, period: CalendarPeriodKind) -> Result<CalendarPeriod, String> {
+    pub fn calendar_period(&self, period: CalendarPeriodKind) -> Result<CalendarPeriod, AppError> {
         let state = self.lock_state()?;
         calendar_period_for(&state, Local::now().date_naive(), period)
     }
 
-    pub fn list_collection_types(&self) -> Result<Vec<CollectionType>, String> {
+    pub fn list_collection_types(&self) -> Result<Vec<CollectionType>, AppError> {
         Ok(self.lock_state()?.collection_types.clone())
     }
 
-    pub fn create_custom_collection_type(&self, name: String) -> Result<CollectionType, String> {
+    pub fn create_custom_collection_type(&self, name: String) -> Result<CollectionType, AppError> {
         let name = name.trim().to_owned();
         let character_count = name.chars().count();
         if !(1..=100).contains(&character_count) {
-            return Err("Custom trash type must be between 1 and 100 characters.".to_owned());
+            return Err(AppError::CollectionTypeNameInvalid);
         }
 
         self.mutate_state(move |state| {
             if let Some(existing) = state
                 .collection_types
                 .iter()
-                .find(|collection_type| !collection_type.is_system && collection_type.name == name)
+                .find(|collection_type| {
+                    matches!(&collection_type.key, crate::domain::CollectionTypeKey::Custom { name: existing } if existing == &name)
+                })
             {
                 return Ok(existing.clone());
             }
 
             let collection_type = CollectionType {
                 id: format!("custom.{}", Uuid::new_v4()),
-                name,
-                is_system: false,
+                key: crate::domain::CollectionTypeKey::Custom { name },
             };
             state.collection_types.push(collection_type.clone());
             Ok(collection_type)
         })
     }
 
-    pub fn delete_custom_collection_type(&self, id: &str) -> Result<(), String> {
+    pub fn delete_custom_collection_type(&self, id: &str) -> Result<(), AppError> {
         let id = id.to_owned();
         self.mutate_state(move |state| {
             let index = state
                 .collection_types
                 .iter()
                 .position(|collection_type| collection_type.id == id)
-                .ok_or_else(|| "Collection type not found.".to_owned())?;
-            if state.collection_types[index].is_system {
-                return Err("System collection types cannot be deleted.".to_owned());
+                .ok_or(AppError::CollectionTypeNotFound)?;
+            if !matches!(
+                state.collection_types[index].key,
+                crate::domain::CollectionTypeKey::Custom { .. }
+            ) {
+                return Err(AppError::SystemCollectionTypeProtected);
             }
 
             state.collection_types.remove(index);
             state.schedules.retain(|schedule| {
-                !schedule.collection_type_ids.iter().any(|type_id| type_id == &id)
+                !schedule
+                    .collection_type_ids
+                    .iter()
+                    .any(|type_id| type_id == &id)
             });
             Ok(())
         })
     }
 
-    pub fn notification_settings(&self) -> Result<NotificationSettings, String> {
+    pub fn notification_settings(&self) -> Result<NotificationSettings, AppError> {
         Ok(self.lock_state()?.notification_settings.clone())
     }
 
     pub fn save_notification_settings(
         &self,
         settings: NotificationSettings,
-    ) -> Result<NotificationSettings, String> {
+    ) -> Result<NotificationSettings, AppError> {
         self.mutate_state(move |state| {
             state.notification_settings = settings.clone();
             Ok(settings)
         })
     }
 
-    pub fn notification_plan(&self) -> Result<Vec<PlannedNotification>, String> {
+    pub fn notification_plan(&self) -> Result<Vec<PlannedNotification>, AppError> {
         self.notification_plan_for(Local::now().naive_local(), NOTIFICATION_HORIZON_DAYS)
     }
 
@@ -252,7 +276,7 @@ impl<R: StateRepository> AppService<R> {
         &self,
         now: chrono::NaiveDateTime,
         horizon_days: u32,
-    ) -> Result<Vec<PlannedNotification>, String> {
+    ) -> Result<Vec<PlannedNotification>, AppError> {
         let state = self.lock_state()?;
         Ok(plan_notifications(
             &state,
@@ -262,7 +286,7 @@ impl<R: StateRepository> AppService<R> {
         ))
     }
 
-    pub fn list_schedules(&self) -> Result<Vec<ScheduleSummary>, String> {
+    pub fn list_schedules(&self) -> Result<Vec<ScheduleSummary>, AppError> {
         let state = self.lock_state()?;
         Ok(state
             .schedules
@@ -271,16 +295,16 @@ impl<R: StateRepository> AppService<R> {
             .collect())
     }
 
-    pub fn get_schedule(&self, id: &str) -> Result<Schedule, String> {
+    pub fn get_schedule(&self, id: &str) -> Result<Schedule, AppError> {
         self.lock_state()?
             .schedules
             .iter()
             .find(|schedule| schedule.id == id)
             .cloned()
-            .ok_or_else(|| "Schedule not found.".to_owned())
+            .ok_or(AppError::ScheduleNotFound)
     }
 
-    pub fn create_schedule(&self, input: ScheduleInput) -> Result<Schedule, String> {
+    pub fn create_schedule(&self, input: ScheduleInput) -> Result<Schedule, AppError> {
         self.mutate_state(move |state| {
             let normalized = normalize_schedule_input(state, input)?;
             let schedule = Schedule {
@@ -293,7 +317,7 @@ impl<R: StateRepository> AppService<R> {
         })
     }
 
-    pub fn update_schedule(&self, id: &str, input: ScheduleInput) -> Result<Schedule, String> {
+    pub fn update_schedule(&self, id: &str, input: ScheduleInput) -> Result<Schedule, AppError> {
         let id = id.to_owned();
         self.mutate_state(move |state| {
             let normalized = normalize_schedule_input(state, input)?;
@@ -301,50 +325,60 @@ impl<R: StateRepository> AppService<R> {
                 .schedules
                 .iter_mut()
                 .find(|schedule| schedule.id == id)
-                .ok_or_else(|| "Schedule not found.".to_owned())?;
+                .ok_or(AppError::ScheduleNotFound)?;
             schedule.collection_type_ids = normalized.collection_type_ids;
             schedule.rule = normalized.rule;
             Ok(schedule.clone())
         })
     }
 
-    pub fn delete_schedule(&self, id: &str) -> Result<(), String> {
+    pub fn delete_schedule(&self, id: &str) -> Result<(), AppError> {
         let id = id.to_owned();
         self.mutate_state(move |state| {
             let index = state
                 .schedules
                 .iter()
                 .position(|schedule| schedule.id == id)
-                .ok_or_else(|| "Schedule not found.".to_owned())?;
+                .ok_or(AppError::ScheduleNotFound)?;
             state.schedules.remove(index);
             Ok(())
         })
     }
 
-    fn lock_state(&self) -> Result<std::sync::MutexGuard<'_, AppState>, String> {
-        self.state
-            .lock()
-            .map_err(|_| "Application state is unavailable.".to_owned())
+    pub fn locale(&self) -> Result<Option<Locale>, AppError> {
+        Ok(self.lock_state()?.locale)
+    }
+
+    pub fn save_locale(&self, locale: Locale) -> Result<Locale, AppError> {
+        self.mutate_state(move |state| {
+            state.locale = Some(locale);
+            Ok(locale)
+        })
+    }
+
+    fn lock_state(&self) -> Result<std::sync::MutexGuard<'_, AppState>, AppError> {
+        self.state.lock().map_err(|_| AppError::StateUnavailable)
     }
 
     fn mutate_state<T>(
         &self,
-        mutation: impl FnOnce(&mut AppState) -> Result<T, String>,
-    ) -> Result<T, String> {
+        mutation: impl FnOnce(&mut AppState) -> Result<T, AppError>,
+    ) -> Result<T, AppError> {
         let mut state = self.lock_state()?;
         let mut next_state = state.clone();
         let result = mutation(&mut next_state)?;
         self.repository
             .save(&next_state)
-            .map_err(|error| format!("Unable to save application state: {error}"))?;
+            .map_err(|_| AppError::UnableToSaveState)?;
         *state = next_state;
         Ok(result)
     }
 }
 
-fn parse_calendar_date(value: &str, boundary: &str) -> Result<NaiveDate, String> {
-    NaiveDate::parse_from_str(value, "%Y-%m-%d")
-        .map_err(|_| format!("The calendar {boundary} date must use YYYY-MM-DD."))
+fn parse_calendar_date(value: &str, boundary: &str) -> Result<NaiveDate, AppError> {
+    NaiveDate::parse_from_str(value, "%Y-%m-%d").map_err(|_| AppError::CalendarDateInvalid {
+        boundary: boundary.to_owned(),
+    })
 }
 
 fn schedule_summary(state: &AppState, schedule: &Schedule) -> ScheduleSummary {
@@ -361,17 +395,17 @@ fn schedule_summary(state: &AppState, schedule: &Schedule) -> ScheduleSummary {
             .filter(|collection_type| selected_ids.contains(collection_type.id.as_str()))
             .cloned()
             .collect(),
-        recurrence_description: recurrence_description(&schedule.rule),
+        rule: schedule.rule.clone(),
     }
 }
 
 fn normalize_schedule_input(
     state: &AppState,
     input: ScheduleInput,
-) -> Result<ScheduleInput, String> {
+) -> Result<ScheduleInput, AppError> {
     let collection_type_ids = unique(input.collection_type_ids);
     if collection_type_ids.is_empty() {
-        return Err("Choose at least one collection type.".to_owned());
+        return Err(AppError::NoCollectionTypes);
     }
     if let Some(id) = collection_type_ids.iter().find(|id| {
         !state
@@ -379,29 +413,27 @@ fn normalize_schedule_input(
             .iter()
             .any(|collection_type| collection_type.id == **id)
     }) {
-        return Err(format!("The collection type '{id}' does not exist."));
+        return Err(AppError::CollectionTypeDoesNotExist { id: id.clone() });
     }
 
     let rule = match input.rule {
         ScheduleRule::Weekly { weekdays } => {
             let weekdays = unique(weekdays);
             if weekdays.is_empty() {
-                return Err("Choose at least one weekday for a weekly schedule.".to_owned());
+                return Err(AppError::NoWeeklyWeekdays);
             }
             ScheduleRule::Weekly { weekdays }
         }
         ScheduleRule::MonthlyNthWeekday { weekday, ordinals } => {
             let ordinals = unique(ordinals);
             if ordinals.is_empty() {
-                return Err("Choose at least one monthly occurrence.".to_owned());
+                return Err(AppError::NoMonthlyOccurrences);
             }
             if let Some(ordinal) = ordinals
                 .iter()
                 .find(|&&ordinal| ordinal == 0 || ordinal > 5)
             {
-                return Err(format!(
-                    "Monthly occurrence '{ordinal}' must be between 1st and 5th."
-                ));
+                return Err(AppError::MonthlyOrdinalOutOfRange { ordinal: *ordinal });
             }
             ScheduleRule::MonthlyNthWeekday { weekday, ordinals }
         }
@@ -475,8 +507,10 @@ mod tests {
             }
         );
         assert_eq!(
-            service.list_schedules().unwrap()[0].recurrence_description,
-            "Every Monday and Thursday"
+            service.list_schedules().unwrap()[0].rule,
+            ScheduleRule::Weekly {
+                weekdays: vec![Weekday::Monday, Weekday::Thursday]
+            }
         );
     }
 
@@ -485,7 +519,7 @@ mod tests {
         let service = AppService::open(MemoryStore::new()).unwrap();
         let schedule = service
             .create_schedule(ScheduleInput {
-                collection_type_ids: vec!["system.pet-bottles".to_owned()],
+                collection_type_ids: vec!["system.pet_bottles".to_owned()],
                 rule: ScheduleRule::MonthlyNthWeekday {
                     weekday: Weekday::Wednesday,
                     ordinals: vec![2, 4],
@@ -501,8 +535,11 @@ mod tests {
             }
         );
         assert_eq!(
-            service.list_schedules().unwrap()[0].recurrence_description,
-            "2nd and 4th Wednesday of each month"
+            service.list_schedules().unwrap()[0].rule,
+            ScheduleRule::MonthlyNthWeekday {
+                weekday: Weekday::Wednesday,
+                ordinals: vec![2, 4]
+            }
         );
     }
 
@@ -563,8 +600,12 @@ mod tests {
         let created = service
             .create_custom_collection_type("Batteries".to_owned())
             .unwrap();
-        assert_eq!(created.name, "Batteries");
-        assert!(!created.is_system);
+        assert_eq!(
+            created.key,
+            crate::domain::CollectionTypeKey::Custom {
+                name: "Batteries".to_owned()
+            }
+        );
         assert_eq!(service.list_collection_types().unwrap().len(), 9);
 
         let reused = service
@@ -586,7 +627,10 @@ mod tests {
             .create_custom_collection_type("Batteries".to_owned())
             .unwrap();
         let custom_schedule = service
-            .create_schedule(weekly_input(vec![custom.id.as_str()], vec![Weekday::Monday]))
+            .create_schedule(weekly_input(
+                vec![custom.id.as_str()],
+                vec![Weekday::Monday],
+            ))
             .unwrap();
         let system_schedule = service
             .create_schedule(weekly_input(vec!["system.glass"], vec![Weekday::Tuesday]))
@@ -594,10 +638,19 @@ mod tests {
 
         service.delete_custom_collection_type(&custom.id).unwrap();
 
-        assert!(service.list_collection_types().unwrap().iter().all(|item| item.id != custom.id));
+        assert!(service
+            .list_collection_types()
+            .unwrap()
+            .iter()
+            .all(|item| item.id != custom.id));
         assert!(service.get_schedule(&custom_schedule.id).is_err());
-        assert_eq!(service.get_schedule(&system_schedule.id).unwrap().id, system_schedule.id);
-        assert!(service.delete_custom_collection_type("system.glass").is_err());
+        assert_eq!(
+            service.get_schedule(&system_schedule.id).unwrap().id,
+            system_schedule.id
+        );
+        assert!(service
+            .delete_custom_collection_type("system.glass")
+            .is_err());
     }
 
     #[test]
@@ -607,36 +660,46 @@ mod tests {
             service
                 .create_schedule(weekly_input(vec![], vec![Weekday::Monday]))
                 .unwrap_err(),
-            "Choose at least one collection type."
+            AppError::NoCollectionTypes
         );
-        assert!(service
-            .create_schedule(weekly_input(vec!["missing"], vec![Weekday::Monday]))
-            .unwrap_err()
-            .contains("does not exist"));
-        assert!(service
-            .create_schedule(weekly_input(vec!["system.glass"], vec![]))
-            .unwrap_err()
-            .contains("at least one weekday"));
-        assert!(service
-            .create_schedule(ScheduleInput {
-                collection_type_ids: vec!["system.glass".to_owned()],
-                rule: ScheduleRule::MonthlyNthWeekday {
-                    weekday: Weekday::Friday,
-                    ordinals: vec![]
-                }
-            })
-            .unwrap_err()
-            .contains("at least one monthly occurrence"));
-        assert!(service
-            .create_schedule(ScheduleInput {
-                collection_type_ids: vec!["system.glass".to_owned()],
-                rule: ScheduleRule::MonthlyNthWeekday {
-                    weekday: Weekday::Friday,
-                    ordinals: vec![6]
-                }
-            })
-            .unwrap_err()
-            .contains("between 1st and 5th"));
+        assert_eq!(
+            service
+                .create_schedule(weekly_input(vec!["missing"], vec![Weekday::Monday]))
+                .unwrap_err(),
+            AppError::CollectionTypeDoesNotExist {
+                id: "missing".to_owned()
+            }
+        );
+        assert_eq!(
+            service
+                .create_schedule(weekly_input(vec!["system.glass"], vec![]))
+                .unwrap_err(),
+            AppError::NoWeeklyWeekdays
+        );
+        assert_eq!(
+            service
+                .create_schedule(ScheduleInput {
+                    collection_type_ids: vec!["system.glass".to_owned()],
+                    rule: ScheduleRule::MonthlyNthWeekday {
+                        weekday: Weekday::Friday,
+                        ordinals: vec![]
+                    }
+                })
+                .unwrap_err(),
+            AppError::NoMonthlyOccurrences
+        );
+        assert_eq!(
+            service
+                .create_schedule(ScheduleInput {
+                    collection_type_ids: vec!["system.glass".to_owned()],
+                    rule: ScheduleRule::MonthlyNthWeekday {
+                        weekday: Weekday::Friday,
+                        ordinals: vec![6]
+                    }
+                })
+                .unwrap_err(),
+            AppError::MonthlyOrdinalOutOfRange { ordinal: 6 }
+        );
     }
 
     #[test]
@@ -651,10 +714,7 @@ mod tests {
         let store = JsonStateStore::new(path);
         let service = AppService::open(store.clone()).unwrap();
         let created = service
-            .create_schedule(weekly_input(
-                vec!["system.cans-and-spray-cans"],
-                vec![Weekday::Friday],
-            ))
+            .create_schedule(weekly_input(vec!["system.cans"], vec![Weekday::Friday]))
             .unwrap();
         drop(service);
 
@@ -797,7 +857,7 @@ mod tests {
             },
             Schedule {
                 id: "monthly".to_owned(),
-                collection_type_ids: vec!["system.pet-bottles".to_owned()],
+                collection_type_ids: vec!["system.pet_bottles".to_owned()],
                 rule: ScheduleRule::MonthlyNthWeekday {
                     weekday: Weekday::Wednesday,
                     ordinals: vec![2],
@@ -812,7 +872,10 @@ mod tests {
         .unwrap();
 
         assert_eq!(days[0].collections.len(), 2);
-        assert_eq!(days[2].collections[0].name, "PET Bottles");
+        assert_eq!(
+            days[2].collections[0].key,
+            crate::domain::CollectionTypeKey::PetBottles
+        );
         assert_eq!(days[7].collections.len(), 2);
     }
 
@@ -893,8 +956,8 @@ mod tests {
                 .collection_calendar("2026-09-21", "2026-09-21")
                 .unwrap()[0]
                 .collections[0]
-                .name,
-            "Combustible"
+                .key,
+            crate::domain::CollectionTypeKey::Combustible
         );
         service
             .update_schedule(
@@ -912,8 +975,8 @@ mod tests {
                 .collection_calendar("2026-09-22", "2026-09-22")
                 .unwrap()[0]
                 .collections[0]
-                .name,
-            "Plastics"
+                .key,
+            crate::domain::CollectionTypeKey::Plastics
         );
         service.delete_schedule(&schedule.id).unwrap();
         assert!(service

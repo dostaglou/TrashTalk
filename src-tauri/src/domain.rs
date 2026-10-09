@@ -2,16 +2,34 @@ use chrono::{Datelike, NaiveDate, NaiveTime, Timelike, Weekday as ChronoWeekday}
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
-pub const CURRENT_STATE_VERSION: u32 = 3;
-
 pub type CollectionTypeId = String;
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CollectionTypeKey {
+    Combustible,
+    Plastics,
+    PetBottles,
+    Unburnables,
+    Glass,
+    Cans,
+    PaperGoods,
+    Appliances,
+    Custom { name: String },
+}
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CollectionType {
     pub id: CollectionTypeId,
-    pub name: String,
-    pub is_system: bool,
+    pub key: CollectionTypeKey,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum Locale {
+    English,
+    Japanese,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -27,18 +45,6 @@ pub enum Weekday {
 }
 
 impl Weekday {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Monday => "Monday",
-            Self::Tuesday => "Tuesday",
-            Self::Wednesday => "Wednesday",
-            Self::Thursday => "Thursday",
-            Self::Friday => "Friday",
-            Self::Saturday => "Saturday",
-            Self::Sunday => "Sunday",
-        }
-    }
-
     fn matches(self, date: NaiveDate) -> bool {
         matches!(
             (self, date.weekday()),
@@ -161,42 +167,38 @@ impl Default for NotificationSettings {
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct AppState {
-    pub version: u32,
     pub collection_types: Vec<CollectionType>,
     pub schedules: Vec<Schedule>,
     pub notification_settings: NotificationSettings,
+    pub locale: Option<Locale>,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            version: CURRENT_STATE_VERSION,
             collection_types: default_collection_types(),
             schedules: Vec::new(),
             notification_settings: NotificationSettings::default(),
+            locale: None,
         }
     }
 }
 
 pub fn default_collection_types() -> Vec<CollectionType> {
     [
-        ("system.combustible", "Combustible"),
-        ("system.plastics", "Plastics"),
-        ("system.pet-bottles", "PET Bottles"),
-        ("system.unburnables", "Unburnables"),
-        ("system.glass", "Glass"),
-        ("system.cans-and-spray-cans", "Cans"),
-        ("system.cardboard-newspapers-magazines", "Paper goods"),
-        (
-            "system.small-electronics-household-appliances",
-            "Appliances",
-        ),
+        ("system.combustible", CollectionTypeKey::Combustible),
+        ("system.plastics", CollectionTypeKey::Plastics),
+        ("system.pet_bottles", CollectionTypeKey::PetBottles),
+        ("system.unburnables", CollectionTypeKey::Unburnables),
+        ("system.glass", CollectionTypeKey::Glass),
+        ("system.cans", CollectionTypeKey::Cans),
+        ("system.paper_goods", CollectionTypeKey::PaperGoods),
+        ("system.appliances", CollectionTypeKey::Appliances),
     ]
     .into_iter()
-    .map(|(id, name)| CollectionType {
+    .map(|(id, key)| CollectionType {
         id: id.to_owned(),
-        name: name.to_owned(),
-        is_system: true,
+        key,
     })
     .collect()
 }
@@ -230,49 +232,6 @@ pub fn ordinal_in_month(date: NaiveDate) -> u8 {
     ((date.day() - 1) / 7 + 1) as u8
 }
 
-pub fn recurrence_description(rule: &ScheduleRule) -> String {
-    match rule {
-        ScheduleRule::Weekly { weekdays } => format!(
-            "Every {}",
-            join_words(weekdays.iter().map(|weekday| weekday.label()).collect())
-        ),
-        ScheduleRule::MonthlyNthWeekday { weekday, ordinals } => format!(
-            "{} {} of each month",
-            join_words(
-                ordinals
-                    .iter()
-                    .map(|ordinal| ordinal_label(*ordinal))
-                    .collect()
-            ),
-            weekday.label()
-        ),
-    }
-}
-
-fn ordinal_label(ordinal: u8) -> &'static str {
-    match ordinal {
-        1 => "1st",
-        2 => "2nd",
-        3 => "3rd",
-        4 => "4th",
-        5 => "5th",
-        _ => "invalid ordinal",
-    }
-}
-
-fn join_words(words: Vec<&str>) -> String {
-    match words.as_slice() {
-        [] => String::new(),
-        [word] => (*word).to_owned(),
-        [first, second] => format!("{first} and {second}"),
-        _ => format!(
-            "{}, and {}",
-            words[..words.len() - 1].join(", "),
-            words.last().unwrap()
-        ),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -280,10 +239,10 @@ mod tests {
     #[test]
     fn default_state_has_the_eight_expected_system_types_with_unique_stable_ids() {
         let state = AppState::default();
-        let names: Vec<&str> = state
+        let keys: Vec<&CollectionTypeKey> = state
             .collection_types
             .iter()
-            .map(|collection_type| collection_type.name.as_str())
+            .map(|collection_type| &collection_type.key)
             .collect();
         let ids: HashSet<&str> = state
             .collection_types
@@ -294,19 +253,22 @@ mod tests {
         assert_eq!(state.collection_types.len(), 8);
         assert_eq!(ids.len(), 8);
         assert_eq!(
-            names,
+            keys,
             vec![
-                "Combustible",
-                "Plastics",
-                "PET Bottles",
-                "Unburnables",
-                "Glass",
-                "Cans",
-                "Paper goods",
-                "Appliances",
+                &CollectionTypeKey::Combustible,
+                &CollectionTypeKey::Plastics,
+                &CollectionTypeKey::PetBottles,
+                &CollectionTypeKey::Unburnables,
+                &CollectionTypeKey::Glass,
+                &CollectionTypeKey::Cans,
+                &CollectionTypeKey::PaperGoods,
+                &CollectionTypeKey::Appliances,
             ]
         );
-        assert!(state.collection_types.iter().all(|item| item.is_system));
+        assert!(state
+            .collection_types
+            .iter()
+            .all(|item| !matches!(item.key, CollectionTypeKey::Custom { .. })));
         assert!(state.schedules.is_empty());
     }
 
@@ -364,9 +326,12 @@ mod tests {
         assert_eq!(
             collections
                 .iter()
-                .map(|collection| collection.name.as_str())
+                .map(|collection| &collection.key)
                 .collect::<Vec<_>>(),
-            vec!["Combustible", "Plastics"]
+            vec![
+                &CollectionTypeKey::Combustible,
+                &CollectionTypeKey::Plastics
+            ]
         );
     }
 
@@ -404,6 +369,7 @@ mod tests {
                 time: NotificationTime::from_hm(18, 0),
             },
         };
+        state.locale = Some(Locale::Japanese);
 
         let serialized = serde_json::to_string(&state).unwrap();
         assert_eq!(

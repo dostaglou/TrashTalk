@@ -4,9 +4,10 @@ mod notifications;
 mod storage;
 
 use application::{
-    AppService, CalendarDay, CalendarPeriod, CalendarPeriodKind, HomeSummary, ScheduleSummary,
+    AppError, AppService, CalendarDay, CalendarPeriod, CalendarPeriodKind, HomeSummary,
+    ScheduleSummary,
 };
-use domain::{CollectionType, NotificationSettings, Schedule, ScheduleInput};
+use domain::{CollectionType, Locale, NotificationSettings, Schedule, ScheduleInput};
 use notifications::PlannedNotification;
 use storage::JsonStateStore;
 use tauri::Manager;
@@ -14,7 +15,7 @@ use tauri::Manager;
 type RuntimeAppService = AppService<JsonStateStore>;
 
 #[tauri::command]
-fn get_home_summary(service: tauri::State<'_, RuntimeAppService>) -> Result<HomeSummary, String> {
+fn get_home_summary(service: tauri::State<'_, RuntimeAppService>) -> Result<HomeSummary, AppError> {
     service.home_summary()
 }
 
@@ -23,7 +24,7 @@ fn get_collection_calendar(
     start_date: String,
     end_date: String,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Vec<CalendarDay>, String> {
+) -> Result<Vec<CalendarDay>, AppError> {
     service.collection_calendar(&start_date, &end_date)
 }
 
@@ -31,14 +32,14 @@ fn get_collection_calendar(
 fn get_calendar_period(
     period: CalendarPeriodKind,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<CalendarPeriod, String> {
+) -> Result<CalendarPeriod, AppError> {
     service.calendar_period(period)
 }
 
 #[tauri::command]
 fn list_collection_types(
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Vec<CollectionType>, String> {
+) -> Result<Vec<CollectionType>, AppError> {
     service.list_collection_types()
 }
 
@@ -46,7 +47,7 @@ fn list_collection_types(
 fn create_custom_collection_type(
     name: String,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<CollectionType, String> {
+) -> Result<CollectionType, AppError> {
     service.create_custom_collection_type(name)
 }
 
@@ -54,14 +55,14 @@ fn create_custom_collection_type(
 fn delete_custom_collection_type(
     id: String,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<(), String> {
+) -> Result<(), AppError> {
     service.delete_custom_collection_type(&id)
 }
 
 #[tauri::command]
 fn get_notification_settings(
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<NotificationSettings, String> {
+) -> Result<NotificationSettings, AppError> {
     service.notification_settings()
 }
 
@@ -69,21 +70,21 @@ fn get_notification_settings(
 fn save_notification_settings(
     settings: NotificationSettings,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<NotificationSettings, String> {
+) -> Result<NotificationSettings, AppError> {
     service.save_notification_settings(settings)
 }
 
 #[tauri::command]
 fn get_notification_plan(
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Vec<PlannedNotification>, String> {
+) -> Result<Vec<PlannedNotification>, AppError> {
     service.notification_plan()
 }
 
 #[tauri::command]
 fn list_schedules(
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Vec<ScheduleSummary>, String> {
+) -> Result<Vec<ScheduleSummary>, AppError> {
     service.list_schedules()
 }
 
@@ -91,7 +92,7 @@ fn list_schedules(
 fn get_schedule(
     id: String,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Schedule, String> {
+) -> Result<Schedule, AppError> {
     service.get_schedule(&id)
 }
 
@@ -99,7 +100,7 @@ fn get_schedule(
 fn create_schedule(
     input: ScheduleInput,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Schedule, String> {
+) -> Result<Schedule, AppError> {
     service.create_schedule(input)
 }
 
@@ -108,13 +109,29 @@ fn update_schedule(
     id: String,
     input: ScheduleInput,
     service: tauri::State<'_, RuntimeAppService>,
-) -> Result<Schedule, String> {
+) -> Result<Schedule, AppError> {
     service.update_schedule(&id, input)
 }
 
 #[tauri::command]
-fn delete_schedule(id: String, service: tauri::State<'_, RuntimeAppService>) -> Result<(), String> {
+fn delete_schedule(
+    id: String,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<(), AppError> {
     service.delete_schedule(&id)
+}
+
+#[tauri::command]
+fn get_locale(service: tauri::State<'_, RuntimeAppService>) -> Result<Option<Locale>, AppError> {
+    service.locale()
+}
+
+#[tauri::command]
+fn save_locale(
+    locale: Locale,
+    service: tauri::State<'_, RuntimeAppService>,
+) -> Result<Locale, AppError> {
+    service.save_locale(locale)
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -137,6 +154,8 @@ pub fn run() {
             get_notification_settings,
             save_notification_settings,
             get_notification_plan,
+            get_locale,
+            save_locale,
             list_schedules,
             get_schedule,
             create_schedule,

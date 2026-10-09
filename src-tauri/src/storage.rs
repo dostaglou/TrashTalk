@@ -101,7 +101,7 @@ impl StateRepository for JsonStateStore {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::domain::{CollectionType, Schedule, ScheduleRule, Weekday};
+    use crate::domain::{CollectionType, CollectionTypeKey, Schedule, ScheduleRule, Weekday};
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -135,8 +135,9 @@ mod tests {
         let mut state = AppState::default();
         state.collection_types.push(CollectionType {
             id: "custom.garden-waste".to_owned(),
-            name: "Garden waste".to_owned(),
-            is_system: false,
+            key: CollectionTypeKey::Custom {
+                name: "Garden waste".to_owned(),
+            },
         });
         state.schedules.push(Schedule {
             id: "schedule-1".to_owned(),
