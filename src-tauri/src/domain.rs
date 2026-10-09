@@ -164,7 +164,6 @@ pub struct AppState {
     pub version: u32,
     pub collection_types: Vec<CollectionType>,
     pub schedules: Vec<Schedule>,
-    #[serde(default)]
     pub notification_settings: NotificationSettings,
 }
 
@@ -176,53 +175,6 @@ impl Default for AppState {
             schedules: Vec::new(),
             notification_settings: NotificationSettings::default(),
         }
-    }
-}
-
-impl AppState {
-    /// Moves known persisted state versions forward without changing user schedules.
-    /// The missing `notification_settings` field in version 1 deserializes to disabled defaults.
-    pub fn migrate_to_current(&mut self) -> bool {
-        if self.version < CURRENT_STATE_VERSION {
-            self.version = CURRENT_STATE_VERSION;
-            return true;
-        }
-        false
-    }
-
-    /// Adds newly introduced system types and refreshes known system labels without
-    /// touching custom types or schedules. Returns whether the persisted state changed.
-    pub fn ensure_system_collection_types(&mut self) -> bool {
-        let defaults = default_collection_types();
-        let mut changed = false;
-
-        for collection_type in &mut self.collection_types {
-            if let Some(default) = defaults
-                .iter()
-                .find(|default| default.id == collection_type.id)
-            {
-                if collection_type.name != default.name {
-                    collection_type.name = default.name.clone();
-                    changed = true;
-                }
-            }
-        }
-
-        let existing_ids: HashSet<&str> = self
-            .collection_types
-            .iter()
-            .map(|collection_type| collection_type.id.as_str())
-            .collect();
-        let missing: Vec<CollectionType> = defaults
-            .into_iter()
-            .filter(|collection_type| !existing_ids.contains(collection_type.id.as_str()))
-            .collect();
-
-        if !missing.is_empty() {
-            changed = true;
-            self.collection_types.extend(missing);
-        }
-        changed
     }
 }
 
@@ -437,14 +389,6 @@ mod tests {
             &schedule,
             NaiveDate::from_ymd_opt(2026, 2, 23).unwrap()
         ));
-    }
-
-    #[test]
-    fn seeding_an_existing_state_does_not_duplicate_system_types() {
-        let mut state = AppState::default();
-
-        assert!(!state.ensure_system_collection_types());
-        assert_eq!(state.collection_types.len(), 8);
     }
 
     #[test]

@@ -1,5 +1,4 @@
 use crate::domain::AppState;
-use serde_json::Value;
 use std::fmt;
 use std::fs::{self, File};
 use std::io::{self, Write};
@@ -40,9 +39,7 @@ pub trait StateRepository: Send + Sync + 'static {
     fn save(&self, state: &AppState) -> Result<(), StoreError>;
 
     fn load_or_initialize(&self) -> Result<AppState, StoreError> {
-        let mut state = self.load()?;
-        state.migrate_to_current();
-        state.ensure_system_collection_types();
+        let state = self.load()?;
         self.save(&state)?;
         Ok(state)
     }
@@ -76,11 +73,7 @@ impl JsonStateStore {
 impl StateRepository for JsonStateStore {
     fn load(&self) -> Result<AppState, StoreError> {
         match fs::read_to_string(&self.path) {
-            Ok(contents) => {
-                let mut value: Value = serde_json::from_str(&contents)?;
-                migrate_legacy_notification_times(&mut value);
-                Ok(serde_json::from_value(value)?)
-            }
+            Ok(contents) => Ok(serde_json::from_str(&contents)?),
             Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(AppState::default()),
             Err(error) => Err(error.into()),
         }
@@ -102,41 +95,6 @@ impl StateRepository for JsonStateStore {
         // A best-effort directory sync makes the rename durable where supported.
         let _ = File::open(parent).and_then(|directory| directory.sync_all());
         Ok(())
-    }
-}
-
-fn migrate_legacy_notification_times(value: &mut Value) {
-    let Some(object) = value.as_object_mut() else {
-        return;
-    };
-    let version = object.get("version").and_then(Value::as_u64).unwrap_or(1);
-    if version >= 3 {
-        return;
-    }
-
-    for (field, mapping) in [
-        (
-            "dayOf",
-            [("early", "06:00"), ("middle", "08:00"), ("late", "10:00")],
-        ),
-        (
-            "dayBefore",
-            [("early", "12:00"), ("middle", "18:00"), ("late", "21:00")],
-        ),
-    ] {
-        let Some(time) = object
-            .get_mut("notificationSettings")
-            .and_then(Value::as_object_mut)
-            .and_then(|settings| settings.get_mut(field))
-            .and_then(Value::as_object_mut)
-            .and_then(|setting| setting.get_mut("time"))
-        else {
-            continue;
-        };
-        let Some(old) = time.as_str() else { continue };
-        if let Some((_, replacement)) = mapping.iter().find(|(name, _)| *name == old) {
-            *time = Value::String((*replacement).to_owned());
-        }
     }
 }
 
@@ -194,55 +152,12 @@ mod tests {
     }
 
     #[test]
-    fn initialization_of_existing_state_does_not_duplicate_defaults() {
+    fn initialization_round_trips_current_state() {
         let store = test_store();
-        store.save(&AppState::default()).unwrap();
+        let expected = AppState::default();
+        store.save(&expected).unwrap();
 
         let state = store.load_or_initialize().unwrap();
-        assert_eq!(state.collection_types.len(), 8);
-        assert_eq!(
-            state
-                .collection_types
-                .iter()
-                .filter(|item| item.is_system)
-                .count(),
-            8
-        );
-    }
-
-    #[test]
-    fn initialization_updates_existing_system_labels() {
-        let store = test_store();
-        let mut state = AppState::default();
-        state.collection_types[5].name = "Cans & Spray cans".to_owned();
-        state.collection_types[6].name = "Cardboard, Newspapers & Magazines".to_owned();
-        state.collection_types[7].name = "Small Electronics & Household Appliances".to_owned();
-        store.save(&state).unwrap();
-
-        let state = store.load_or_initialize().unwrap();
-        let names: Vec<&str> = state
-            .collection_types
-            .iter()
-            .map(|collection_type| collection_type.name.as_str())
-            .collect();
-        assert_eq!(&names[5..], &["Cans", "Paper goods", "Appliances"]);
-    }
-
-    #[test]
-    fn version_one_state_migrates_to_disabled_notification_settings() {
-        let store = test_store();
-        let old_state = r#"{
-          "version": 1,
-          "collectionTypes": [{"id":"system.combustible","name":"Combustible","isSystem":true}],
-          "schedules": []
-        }"#;
-        fs::create_dir_all(store.path().parent().unwrap()).unwrap();
-        fs::write(store.path(), old_state).unwrap();
-
-        let state = store.load_or_initialize().unwrap();
-        assert_eq!(state.version, crate::domain::CURRENT_STATE_VERSION);
-        assert!(!state.notification_settings.day_before.enabled);
-        assert!(!state.notification_settings.day_of.enabled);
-        assert_eq!(state.collection_types.len(), 8);
+        assert_eq!(state, expected);
     }
 }
