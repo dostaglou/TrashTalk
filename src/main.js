@@ -24,6 +24,7 @@ import {
 import {
   Importance,
   Schedule as NotificationSchedule,
+  Visibility,
   cancel,
   createChannel,
   isPermissionGranted,
@@ -67,6 +68,7 @@ let activePrimaryView = "home";
 
 const reminderChannel = {
   importance: Importance.Default,
+  visibility: Visibility.Public,
   vibration: true,
   sound: "notification_ping",
 };
@@ -250,11 +252,13 @@ async function reconcileNativeNotifications({ requestPermission: shouldRequestPe
     await createChannel(channel);
     const plan = await invoke("get_notification_plan");
     plan.forEach((notification) => {
+      const message = notificationText(notification);
       sendNotification({
         id: notification.id,
         channelId: channel.id,
-        title: notificationText(notification),
+        title: message,
         body: "",
+        visibility: Visibility.Public,
         icon: "trashtalk_notification",
         iconColor: "#d99a25",
         schedule: NotificationSchedule.at(localDateTimeFromRust(notification.scheduledAt), false, true),
